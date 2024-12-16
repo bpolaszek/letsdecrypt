@@ -16,6 +16,21 @@ export interface SecretMetadata {
   symmetricKey: string;
 }
 
+export interface WrappedKeyData {
+  wrappedKey: string; // base64 encoded
+  iv: string; // base64 encoded
+}
+
+export interface CryptoKeyPair {
+  publicKey: CryptoKey;
+  privateKey: CryptoKey;
+}
+
+export interface WrappedCryptoKeyPair {
+  publicKey: CryptoKey;
+  privateKey: WrappedKeyData;
+}
+
 export class Secret {
   private encryptedData: string;
   private metadata: SecretMetadata;
@@ -49,10 +64,11 @@ export class Secret {
 export class CryptoService {
   private static readonly ALGORITHM = 'RSA-OAEP';
   private static readonly SYMMETRIC_ALGORITHM = 'AES-GCM';
+  private static readonly WRAP_ALGORITHM = 'AES-KW';
   private static readonly KEY_LENGTH = 2048;
   private static readonly HASH = 'SHA-256';
 
-  static async generateKeyPair(options?: KeyPairOptions): Promise<CryptoKeyPair> {
+  static async generateKeyPair(options?: KeyPairOptions): Promise<CryptoKeyPair | WrappedCryptoKeyPair> {
     const keyPair = await crypto.subtle.generateKey(
       {
         name: this.ALGORITHM,
@@ -76,14 +92,22 @@ export class CryptoService {
     return keyPair;
   }
 
-  static async exportKeyPair(keyPair: CryptoKeyPair): Promise<SerializedKeyPair> {
-    const exportedPublic = await crypto.subtle.exportKey('spki', keyPair.publicKey);
-    const exportedPrivate = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+  static async exportKeyPair(keyPair: CryptoKeyPair | WrappedCryptoKeyPair): Promise<SerializedKeyPair> {
+    if ('privateKey' in keyPair && 'wrappedKey' in keyPair.privateKey) {
+      const exportedPublic = await crypto.subtle.exportKey('spki', keyPair.publicKey);
+      return {
+        publicKey: Buffer.from(exportedPublic).toString('base64'),
+        privateKey: JSON.stringify(keyPair.privateKey),
+      };
+    } else {
+      const exportedPublic = await crypto.subtle.exportKey('spki', keyPair.publicKey);
+      const exportedPrivate = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
 
-    return {
-      publicKey: Buffer.from(exportedPublic).toString('base64'),
-      privateKey: Buffer.from(exportedPrivate).toString('base64'),
-    };
+      return {
+        publicKey: Buffer.from(exportedPublic).toString('base64'),
+        privateKey: Buffer.from(exportedPrivate).toString('base64'),
+      };
+    }
   }
 
   static async importPublicKey(serialized: string): Promise<CryptoKey> {
@@ -104,23 +128,28 @@ export class CryptoService {
     serialized: string,
     passphrase?: string
   ): Promise<CryptoKey> {
-    const binaryKey = Buffer.from(serialized, 'base64');
-    const key = await crypto.subtle.importKey(
-      'pkcs8',
-      binaryKey,
-      {
-        name: this.ALGORITHM,
-        hash: this.HASH,
-      },
-      true,
-      ['decrypt']
-    );
+    if (serialized.startsWith('{')) {
+      const wrappedKeyData: WrappedKeyData = JSON.parse(serialized);
+      return this.unwrapKey(wrappedKeyData, passphrase);
+    } else {
+      const binaryKey = Buffer.from(serialized, 'base64');
+      const key = await crypto.subtle.importKey(
+        'pkcs8',
+        binaryKey,
+        {
+          name: this.ALGORITHM,
+          hash: this.HASH,
+        },
+        true,
+        ['decrypt']
+      );
 
-    if (passphrase) {
-      return this.unwrapKey(key, passphrase);
+      if (passphrase) {
+        return this.unwrapKey(key, passphrase);
+      }
+
+      return key;
     }
-
-    return key;
   }
 
   static async encrypt(
@@ -181,13 +210,19 @@ export class CryptoService {
 
   static async decrypt(
     secret: Secret | string,
-    privateKey: CryptoKey | string,
+    privateKey: CryptoKey | string | WrappedKeyData,
     passphrase?: string
   ): Promise<string> {
     const secretObj = typeof secret === 'string' ? Secret.deserialize(secret) : secret;
-    const key = typeof privateKey === 'string'
-      ? await this.importPrivateKey(privateKey, passphrase)
-      : privateKey;
+    let key: CryptoKey;
+
+    if (typeof privateKey === 'string') {
+      key = await this.importPrivateKey(privateKey, passphrase);
+    } else if ('wrappedKey' in privateKey) {
+      key = await this.unwrapKey(privateKey, passphrase);
+    } else {
+      key = privateKey;
+    }
 
     // Decrypt the symmetric key
     const encryptedSymKey = Buffer.from(secretObj.getMetadata().symmetricKey, 'base64');
@@ -230,42 +265,52 @@ export class CryptoService {
   private static async wrapKey(
     key: CryptoKey,
     passphrase: string
-  ): Promise<CryptoKey> {
+  ): Promise<WrappedKeyData> {
+    // First export the private key to wrap it
+    const keyData = await crypto.subtle.exportKey('pkcs8', key);
+    
+    // Generate a wrapping key from the passphrase
     const wrappingKey = await this.generateKeyFromPassphrase(passphrase);
-    const wrapped = await crypto.subtle.wrapKey(
-      'pkcs8',
-      key,
+    
+    // Generate IV for encryption
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    
+    // Wrap the exported key data
+    const wrapped = await crypto.subtle.encrypt(
+      { name: this.SYMMETRIC_ALGORITHM, iv },
       wrappingKey,
-      {
-        name: this.SYMMETRIC_ALGORITHM,
-        iv: crypto.getRandomValues(new Uint8Array(12)),
-      }
+      keyData
     );
-    return crypto.subtle.importKey(
-      'pkcs8',
-      wrapped,
-      {
-        name: this.ALGORITHM,
-        hash: this.HASH,
-      },
-      true,
-      ['decrypt']
-    );
+    
+    // Return the wrapped key data in base64 format
+    return {
+      wrappedKey: Buffer.from(wrapped).toString('base64'),
+      iv: Buffer.from(iv).toString('base64')
+    };
   }
 
   private static async unwrapKey(
-    key: CryptoKey,
+    wrappedData: WrappedKeyData,
     passphrase: string
   ): Promise<CryptoKey> {
+    // Generate the unwrapping key from the passphrase
     const unwrappingKey = await this.generateKeyFromPassphrase(passphrase);
-    return crypto.subtle.unwrapKey(
-      'pkcs8',
-      await crypto.subtle.exportKey('pkcs8', key),
+    
+    // Decode the wrapped key and IV from base64
+    const wrappedKey = Buffer.from(wrappedData.wrappedKey, 'base64');
+    const iv = Buffer.from(wrappedData.iv, 'base64');
+    
+    // Decrypt the wrapped key
+    const unwrappedData = await crypto.subtle.decrypt(
+      { name: this.SYMMETRIC_ALGORITHM, iv },
       unwrappingKey,
-      {
-        name: this.SYMMETRIC_ALGORITHM,
-        iv: crypto.getRandomValues(new Uint8Array(12)),
-      },
+      wrappedKey
+    );
+    
+    // Import the unwrapped key
+    return crypto.subtle.importKey(
+      'pkcs8',
+      unwrappedData,
       {
         name: this.ALGORITHM,
         hash: this.HASH,
@@ -300,7 +345,7 @@ export class CryptoService {
         length: 256,
       },
       true,
-      ['wrapKey', 'unwrapKey']
+      ['encrypt', 'decrypt']
     );
   }
 

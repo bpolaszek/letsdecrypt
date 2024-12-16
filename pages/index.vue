@@ -153,14 +153,13 @@ const decryptedMessage = ref('')
 
 async function generateKeyPair() {
   try {
-    console.log(passphrase.value)
     keyPair.value = await CryptoService.generateKeyPair({
       passphrase: passphrase.value || undefined,
     })
     serializedKeys.value = await CryptoService.exportKeyPair(keyPair.value)
-  } catch (error) {
-    console.error('Error generating key pair:', error)
-    alert('Failed to generate key pair')
+  } catch (e) {
+    console.error('Error generating key pair:', (e as Error).message)
+    throw e
   }
 }
 
