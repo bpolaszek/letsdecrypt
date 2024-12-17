@@ -22,7 +22,6 @@ type AlgorithmOptions = {
 
 export class CryptoService {
   protected static readonly HASH = 'SHA-256'
-  private static readonly DEFAULT_ECC_CURVE = 'P-256';
 
   static async generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> {
     return match(options?.algorithm ?? 'RSA', [
@@ -40,18 +39,19 @@ export class CryptoService {
   }
 
   protected static async importPublicKey(serialized: string): Promise<CryptoKey> {
-    const {wrappedKey, algorithm} = JSON.parse(serialized)
+    const unserialized = JSON.parse(serialized)
+    const {wrappedKey, algorithm, format, namedCurve} = unserialized
     const usages = match(algorithm, [
       ['RSA-OAEP', () => Rsa.getPublicKeyUsages()],
       ['ECDH', () => Ecc.getPublicKeyUsages()],
     ]) as unknown as KeyUsage[]
     const algorithmOptions = match<AlgorithmId, AlgorithmOptions>(algorithm, [
       ['RSA-OAEP', () => ({name: algorithm, hash: this.HASH})],
-      ['ECDH', () => ({name: algorithm, namedCurve: this.DEFAULT_ECC_CURVE})],
+      ['ECDH', () => ({name: algorithm, namedCurve})],
     ])
     const binaryKey = Buffer.from(wrappedKey, 'base64')
     return await crypto.subtle.importKey(
-      'spki',
+      format,
       binaryKey,
       algorithmOptions,
       true,

@@ -59,7 +59,7 @@ export class Ecc extends AbstractCryptoService {
       unwrappedData;
 
     // Import the key with the correct algorithm parameters
-    const importParams = { name: this.ECC_ALGORITHM, namedCurve: this.DEFAULT_ECC_CURVE }
+    const importParams = { name: this.ECC_ALGORITHM, namedCurve: wrappedData.namedCurve }
 
     return crypto.subtle.importKey(
       format,
@@ -126,7 +126,8 @@ export class Ecc extends AbstractCryptoService {
       keyHash: await this.hashKey(publicKey),
       iv: Buffer.from(iv).toString('base64'),
       symmetricKey: '', // Not needed for ECC
-      publicKey: Buffer.from(exportedEphemeralKey).toString('base64')
+      publicKey: Buffer.from(exportedEphemeralKey).toString('base64'),
+      namedCurve: (keyAlgorithm as EcKeyImportParams).namedCurve,
     };
 
     return new Secret(
@@ -157,7 +158,7 @@ export class Ecc extends AbstractCryptoService {
       Buffer.from(secretObj.getMetadata().publicKey!, 'base64'),
       {
         name: this.ECC_ALGORITHM,
-        namedCurve: this.DEFAULT_ECC_CURVE,
+        namedCurve: secretObj.getMetadata().namedCurve ?? this.DEFAULT_ECC_CURVE,
       },
       true,
       []

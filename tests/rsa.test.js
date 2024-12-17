@@ -33,11 +33,12 @@ describe.each([
   it('encrypts a secret', async function () {
     encryptedSecret = await CryptoService.encrypt(sensitiveData, serializedKeys.publicKey)
     expect(encryptedSecret).toBeInstanceOf(Secret)
+    const metadata = encryptedSecret.getMetadata()
+    expect(metadata.algorithm).toBe('RSA-OAEP')
   })
 
   it('decrypts a secret', async function () {
     let decrypted = await CryptoService.decrypt(encryptedSecret, keyPair.privateKey, passphrase)
     expect(decrypted).toBe(sensitiveData)
   })
-
 })

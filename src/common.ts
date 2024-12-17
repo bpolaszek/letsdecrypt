@@ -21,6 +21,7 @@ export interface SecretMetadata {
   iv: string;
   symmetricKey: string;
   publicKey?: string; // For ECC, we need to store the ephemeral public key
+  namedCurve?: string; // The curve used for ECC keys
 }
 
 export interface WrappedKeyData {
@@ -28,6 +29,7 @@ export interface WrappedKeyData {
   iv: string; // base64 encoded
   algorithm: string; // The algorithm used for the key
   format: string; // The format of the wrapped key
+  namedCurve?: string; // The curve used for ECC keys
 }
 
 export interface CryptoKeyPair {
@@ -94,7 +96,7 @@ export abstract class AbstractCryptoService {
     throw Error('Abstract static method getAlgorithm has not been implemented.')
   }
 
-  protected static getKeyGenParams(options?: KeyPairOptions): RsaHashedKeyGenParams | EcKeyGenParams {
+  protected static getKeyGenParams(options?: KeyPairOptions): (RsaHashedKeyGenParams | EcKeyGenParams) & { namedCurve?: string } {
     throw Error('Abstract static method getKeyGenParams has not been implemented.')
   }
 
@@ -134,12 +136,13 @@ export abstract class AbstractCryptoService {
     )
   }
 
-  protected static async wrapPublicKey(key: CryptoKey, algorithm: string): Promise<WrappedKeyData> {
+  protected static async wrapPublicKey(key: CryptoKey, algorithm: string, namedCurve?: string): Promise<WrappedKeyData> {
     return {
       wrappedKey: Buffer.from(await crypto.subtle.exportKey('spki', key)).toString('base64'),
       iv: Buffer.from(crypto.getRandomValues(new Uint8Array(12))).toString('base64'),
       format: 'spki',
       algorithm,
+      namedCurve,
     }
   }
 
@@ -147,6 +150,7 @@ export abstract class AbstractCryptoService {
     key: CryptoKey,
     passphrase: string,
     algorithm: string,
+    namedCurve?: string,
   ): Promise<WrappedKeyData> {
     // First export the private key to wrap it
     const format = algorithm === this.ECC_ALGORITHM ? 'jwk' : 'pkcs8'
@@ -173,6 +177,7 @@ export abstract class AbstractCryptoService {
       iv: Buffer.from(iv).toString('base64'),
       algorithm,
       format,
+      namedCurve,
     }
   }
 
@@ -184,8 +189,8 @@ export abstract class AbstractCryptoService {
       this.getKeyPairUsages(),
     )
     // If passphrase provided, wrap the private key
-    const wrappedPrivateKey = await this.wrapPrivateKey(keyPair.privateKey, options?.passphrase ?? '', params.name)
-    const wrappedPublicKey = await this.wrapPublicKey(keyPair.publicKey, params.name)
+    const wrappedPrivateKey = await this.wrapPrivateKey(keyPair.privateKey, options?.passphrase ?? '', params.name, params.namedCurve)
+    const wrappedPublicKey = await this.wrapPublicKey(keyPair.publicKey, params.name, params.namedCurve)
     return {
       publicKey: wrappedPublicKey,
       privateKey: wrappedPrivateKey,
