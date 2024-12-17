@@ -1,73 +1,18 @@
 import { Buffer } from 'buffer';
+import type {KeyPairOptions,
+  SerializedKeyPair,
+  SecretMetadata,
+  WrappedKeyData,
+  CryptoKeyPair,
+  WrappedCryptoKeyPair} from './common';
+import {Secret} from './common';
+import { Rsa } from "./rsa"
 
-export interface KeyPairOptions {
-  passphrase?: string;
-  algorithm?: 'RSA' | 'ECC';
-  rsaModulusLength?: number;
-  eccCurve?: 'P-256' | 'P-384' | 'P-521';
+export const CryptoService = {
+  RSA: Rsa,
 }
 
-export interface SerializedKeyPair {
-  publicKey: string;
-  privateKey: string;
-}
-
-export interface SecretMetadata {
-  algorithm: string;
-  keyHash: string;
-  iv: string;
-  symmetricKey: string;
-  publicKey?: string; // For ECC, we need to store the ephemeral public key
-}
-
-export interface WrappedKeyData {
-  wrappedKey: string; // base64 encoded
-  iv: string; // base64 encoded
-  algorithm: string; // The algorithm used for the key
-  format: string; // The format of the wrapped key
-}
-
-export interface CryptoKeyPair {
-  publicKey: CryptoKey;
-  privateKey: CryptoKey;
-}
-
-export interface WrappedCryptoKeyPair {
-  publicKey: CryptoKey;
-  privateKey: WrappedKeyData;
-}
-
-export class Secret {
-  private encryptedData: string;
-  private metadata: SecretMetadata;
-
-  constructor(encryptedData: string, metadata: SecretMetadata) {
-    this.encryptedData = encryptedData;
-    this.metadata = metadata;
-  }
-
-  serialize(): string {
-    return JSON.stringify({
-      data: this.encryptedData,
-      metadata: this.metadata,
-    });
-  }
-
-  static deserialize(serialized: string): Secret {
-    const parsed = JSON.parse(serialized);
-    return new Secret(parsed.data, parsed.metadata);
-  }
-
-  getEncryptedData(): string {
-    return this.encryptedData;
-  }
-
-  getMetadata(): SecretMetadata {
-    return this.metadata;
-  }
-}
-
-export class CryptoService {
+class CryptoService_old {
   private static readonly RSA_ALGORITHM = 'RSA-OAEP';
   private static readonly ECC_ALGORITHM = 'ECDH';
   private static readonly SYMMETRIC_ALGORITHM = 'AES-GCM';

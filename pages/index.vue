@@ -168,7 +168,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { CryptoService, type SerializedKeyPair } from '~/utils/crypto'
+import { CryptoService, type SerializedKeyPair } from '~/src'
 import { syncRef, whenever } from "@vueuse/core"
 
 // Key Generation
