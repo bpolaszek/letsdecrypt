@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@vueuse/core": "^12.0.0",
+    "match-operator": "^0.3.0",
     "nuxt": "^3.13.0"
   },
   "devDependencies": {

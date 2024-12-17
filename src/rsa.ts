@@ -1,32 +1,28 @@
-import { type AlgorithmId, CryptoService, Secret, type SecretMetadata, type WrappedKeyData } from "./common"
+import { type AlgorithmId, AbstractCryptoService, Secret, type SecretMetadata, type WrappedKeyData } from "./common"
 import { Buffer } from "buffer"
 
-export class Rsa extends CryptoService {
+export class Rsa extends AbstractCryptoService {
 
-  protected static override getPublicKeyUsages(): KeyUsage[] {
+  static override getPublicKeyUsages(): KeyUsage[] {
     return ['encrypt']
   }
 
-  protected static override getPrivateKeyUsages(): KeyUsage[] {
+  static override getPrivateKeyUsages(): KeyUsage[] {
     return ['decrypt']
   }
 
-  protected static override getKeyPairUsages(): KeyUsage[] {
+  static override getKeyPairUsages(): KeyUsage[] {
     return ['encrypt', 'decrypt']
   }
 
-  protected static override getAlgorithm(): AlgorithmId {
+  static override getAlgorithm(): AlgorithmId {
     return 'RSA-OAEP'
   }
 
   static async encrypt(
     data: string,
-    publicKey: CryptoKey | string,
+    publicKey: CryptoKey,
   ): Promise<Secret> {
-    const key = typeof publicKey === 'string'
-      ? await this.importPublicKey(publicKey)
-      : publicKey
-
     // RSA encryption path (unchanged)
     // Generate a symmetric key for the actual data encryption
     const symmetricKey = await crypto.subtle.generateKey(
@@ -58,14 +54,14 @@ export class Rsa extends CryptoService {
       {
         name: this.RSA_ALGORITHM,
       },
-      key,
+      publicKey,
       exportedSymKey,
     )
 
     // Create metadata
     const metadata: SecretMetadata = {
       algorithm: this.RSA_ALGORITHM,
-      keyHash: await this.hashKey(key),
+      keyHash: await this.hashKey(publicKey),
       iv: Buffer.from(iv).toString('base64'),
       symmetricKey: Buffer.from(encryptedSymKey).toString('base64'),
     }

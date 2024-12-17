@@ -13,7 +13,7 @@ describe.each([
 
   let keyPair, serializedKeys, encryptedSecret
   it('generates a key pair', async function () {
-    keyPair = await CryptoService.RSA.generateKeyPair({
+    keyPair = await CryptoService.generateKeyPair({
       algorithm: 'RSA',
       modulusLength,
       passphrase,
@@ -24,19 +24,19 @@ describe.each([
   })
 
   it('serializes the keys', async function () {
-    serializedKeys = await CryptoService.RSA.exportKeyPair(keyPair)
+    serializedKeys = await CryptoService.exportKeyPair(keyPair)
     const {publicKey, privateKey} = serializedKeys
     expect(publicKey).toBeTypeOf('string')
     expect(privateKey).toBeTypeOf('string')
   })
 
   it('encrypts a secret', async function () {
-    encryptedSecret = await CryptoService.RSA.encrypt(sensitiveData, serializedKeys.publicKey)
+    encryptedSecret = await CryptoService.encrypt(sensitiveData, serializedKeys.publicKey)
     expect(encryptedSecret).toBeInstanceOf(Secret)
   })
 
   it('decrypts a secret', async function () {
-    let decrypted = await CryptoService.RSA.decrypt(encryptedSecret, keyPair.privateKey, passphrase)
+    let decrypted = await CryptoService.decrypt(encryptedSecret, keyPair.privateKey, passphrase)
     expect(decrypted).toBe(sensitiveData)
   })
 

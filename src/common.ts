@@ -41,8 +41,8 @@ export interface WrappedCryptoKeyPair {
 }
 
 export class Secret {
-  private encryptedData: string;
-  private metadata: SecretMetadata;
+  private readonly encryptedData: string;
+  private readonly metadata: SecretMetadata;
 
   constructor(encryptedData: string, metadata: SecretMetadata) {
     this.encryptedData = encryptedData;
@@ -70,29 +70,27 @@ export class Secret {
   }
 }
 
-export abstract class CryptoService {
+export abstract class AbstractCryptoService {
 
   protected static readonly RSA_ALGORITHM = 'RSA-OAEP'
   protected static readonly ECC_ALGORITHM = 'ECDH'
   protected static readonly SYMMETRIC_ALGORITHM = 'AES-GCM'
-  protected static readonly WRAP_ALGORITHM = 'AES-KW'
   protected static readonly DEFAULT_RSA_LENGTH = 2048
-  protected static readonly DEFAULT_ECC_CURVE = 'P-256'
   protected static readonly HASH = 'SHA-256'
 
-  protected static getPublicKeyUsages(): KeyUsage[] {
+  static getPublicKeyUsages(): KeyUsage[] {
     throw Error('Abstract static method getPublicKeyUsages has not been implemented.')
   }
 
-  protected static getPrivateKeyUsages(): KeyUsage[] {
+  static getPrivateKeyUsages(): KeyUsage[] {
     throw Error('Abstract static method getPrivateKeyUsages has not been implemented.')
   }
 
-  protected static getKeyPairUsages(): KeyUsage[] {
+  static getKeyPairUsages(): KeyUsage[] {
     throw Error('Abstract static method getKeyPairUsages has not been implemented.')
   }
 
-  protected static getAlgorithm(): AlgorithmId {
+  static getAlgorithm(): AlgorithmId {
     throw Error('Abstract static method getAlgorithm has not been implemented.')
   }
 
@@ -159,12 +157,11 @@ export abstract class CryptoService {
       keyBytes,
     )
 
-    // Return the wrapped key data in base64 format with format information
     return {
       wrappedKey: Buffer.from(wrapped).toString('base64'),
       iv: Buffer.from(iv).toString('base64'),
       algorithm,
-      format, // Add format information
+      format,
     }
   }
 
@@ -193,32 +190,10 @@ export abstract class CryptoService {
     }
   }
 
-  static async exportKeyPair(keyPair: CryptoKeyPair | WrappedCryptoKeyPair): Promise<SerializedKeyPair> {
-    return {
-      publicKey: JSON.stringify(keyPair.publicKey),
-      privateKey: JSON.stringify(keyPair.privateKey),
-    }
-  }
-
   protected static async hashKey(key: CryptoKey): Promise<string> {
     const exported = await crypto.subtle.exportKey('spki', key)
     const hashBuffer = await crypto.subtle.digest(this.HASH, exported)
     return Buffer.from(hashBuffer).toString('hex')
-  }
-
-  static async importPublicKey(serialized: string): Promise<CryptoKey> {
-    const {wrappedKey} = JSON.parse(serialized)
-    const binaryKey = Buffer.from(wrappedKey, 'base64')
-    return await crypto.subtle.importKey(
-      'spki',
-      binaryKey,
-      {
-        name: this.getAlgorithm(),
-        hash: this.HASH,
-      },
-      true,
-      this.getPublicKeyUsages(),
-    )
   }
 
   protected static async unwrapKey(
