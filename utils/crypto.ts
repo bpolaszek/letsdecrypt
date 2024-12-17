@@ -78,7 +78,7 @@ export class CryptoService {
 
   private static getKeyGenParams(options?: KeyPairOptions): RsaHashedKeyGenParams | EcKeyGenParams {
     const algorithm = options?.algorithm || 'RSA';
-    
+
     if (algorithm === 'RSA') {
       return {
         name: this.RSA_ALGORITHM,
@@ -164,7 +164,7 @@ export class CryptoService {
 
   static async importPublicKey(serialized: string): Promise<CryptoKey> {
     const binaryKey = Buffer.from(serialized, 'base64');
-    
+
     try {
       // Try RSA first
       return await crypto.subtle.importKey(
@@ -245,7 +245,7 @@ export class CryptoService {
     data: string,
     publicKey: CryptoKey | string
   ): Promise<Secret> {
-    const key = typeof publicKey === 'string' 
+    const key = typeof publicKey === 'string'
       ? await this.importPublicKey(publicKey)
       : publicKey;
 
@@ -471,23 +471,23 @@ export class CryptoService {
     // First export the private key to wrap it
     const format = algorithm === this.ECC_ALGORITHM ? 'jwk' : 'pkcs8';
     const keyData = await crypto.subtle.exportKey(format, key);
-    const keyBytes = format === 'jwk' ? 
+    const keyBytes = format === 'jwk' ?
       new TextEncoder().encode(JSON.stringify(keyData)) :
       new Uint8Array(keyData);
-    
+
     // Generate a wrapping key from the passphrase
     const wrappingKey = await this.generateKeyFromPassphrase(passphrase);
-    
+
     // Generate IV for encryption
     const iv = crypto.getRandomValues(new Uint8Array(12));
-    
+
     // Wrap the exported key data
     const wrapped = await crypto.subtle.encrypt(
       { name: this.SYMMETRIC_ALGORITHM, iv },
       wrappingKey,
       keyBytes
     );
-    
+
     // Return the wrapped key data in base64 format with format information
     return {
       wrappedKey: Buffer.from(wrapped).toString('base64'),
@@ -503,11 +503,11 @@ export class CryptoService {
   ): Promise<CryptoKey> {
     // Generate the unwrapping key from the passphrase
     const unwrappingKey = await this.generateKeyFromPassphrase(passphrase);
-    
+
     // Decode the wrapped key and IV from base64
     const wrappedKey = Buffer.from(wrappedData.wrappedKey, 'base64');
     const iv = Buffer.from(wrappedData.iv, 'base64');
-    
+
     // Decrypt the wrapped key
     const unwrappedData = await crypto.subtle.decrypt(
       { name: this.SYMMETRIC_ALGORITHM, iv },
@@ -517,7 +517,7 @@ export class CryptoService {
 
     // Handle the unwrapped data based on the original format
     const format = (wrappedData as any).format || (wrappedData.algorithm === this.ECC_ALGORITHM ? 'jwk' : 'pkcs8');
-    const keyData = format === 'jwk' ? 
+    const keyData = format === 'jwk' ?
       JSON.parse(new TextDecoder().decode(unwrappedData)) :
       unwrappedData;
 
