@@ -5,16 +5,12 @@ import {payload as sensitiveData} from './data'
 describe.each([
   {sensitiveData},
   {sensitiveData, passphrase: 'May the 4th be with you'},
-  {sensitiveData, modulusLength: 3072},
-  {sensitiveData, modulusLength: 3072, passphrase: 'May the 4th be with you'},
-  {sensitiveData, modulusLength: 4096},
-  {sensitiveData, modulusLength: 4096, passphrase: 'May the 4th be with you'},
-])('RSA keys with passphrase $passphrase', function ({sensitiveData, modulusLength, passphrase}) {
+])('ECC keys with passphrase $passphrase', function ({sensitiveData, modulusLength, passphrase}) {
 
   let keyPair, serializedKeys, encryptedSecret
   it('generates a key pair', async function () {
     keyPair = await CryptoService.generateKeyPair({
-      algorithm: 'RSA',
+      algorithm: 'ECC',
       modulusLength,
       passphrase,
     })

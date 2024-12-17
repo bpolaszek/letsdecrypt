@@ -94,6 +94,17 @@ export abstract class AbstractCryptoService {
     throw Error('Abstract static method getAlgorithm has not been implemented.')
   }
 
+  protected static getKeyGenParams(options?: KeyPairOptions): RsaHashedKeyGenParams | EcKeyGenParams {
+    throw Error('Abstract static method getKeyGenParams has not been implemented.')
+  }
+
+  protected static async unwrapKey(
+    wrappedData: WrappedKeyData,
+    passphrase: string,
+  ): Promise<CryptoKey> {
+    throw Error('Abstract static method unwrapKey has not been implemented.')
+  }
+
   protected static async generateKeyFromPassphrase(
     passphrase: string,
   ): Promise<CryptoKey> {
@@ -165,15 +176,6 @@ export abstract class AbstractCryptoService {
     }
   }
 
-  protected static getKeyGenParams(options?: KeyPairOptions): RsaHashedKeyGenParams | EcKeyGenParams {
-    return {
-      name: this.RSA_ALGORITHM,
-      modulusLength: options?.rsaModulusLength || this.DEFAULT_RSA_LENGTH,
-      publicExponent: new Uint8Array([1, 0, 1]),
-      hash: this.HASH,
-    }
-  }
-
   static async generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> {
     const params = this.getKeyGenParams(options)
     const keyPair = await crypto.subtle.generateKey(
@@ -194,42 +196,6 @@ export abstract class AbstractCryptoService {
     const exported = await crypto.subtle.exportKey('spki', key)
     const hashBuffer = await crypto.subtle.digest(this.HASH, exported)
     return Buffer.from(hashBuffer).toString('hex')
-  }
-
-  protected static async unwrapKey(
-    wrappedData: WrappedKeyData,
-    passphrase: string,
-  ): Promise<CryptoKey> {
-    // Generate the unwrapping key from the passphrase
-    const unwrappingKey = await this.generateKeyFromPassphrase(passphrase)
-
-    // Decode the wrapped key and IV from base64
-    const wrappedKey = Buffer.from(wrappedData.wrappedKey, 'base64')
-    const iv = Buffer.from(wrappedData.iv, 'base64')
-
-    // Decrypt the wrapped key
-    const unwrappedData = await crypto.subtle.decrypt(
-      {name: this.SYMMETRIC_ALGORITHM, iv},
-      unwrappingKey,
-      wrappedKey,
-    )
-
-    // Handle the unwrapped data based on the original format
-    const format = (wrappedData as any).format || 'pkcs8'
-    const keyData = format === 'jwk' ?
-      JSON.parse(new TextDecoder().decode(unwrappedData)) :
-      unwrappedData
-
-    return crypto.subtle.importKey(
-      format,
-      keyData,
-      {
-        name: this.RSA_ALGORITHM,
-        hash: this.HASH,
-      },
-      true,
-      this.getPrivateKeyUsages(),
-    )
   }
 
   static async importPrivateKey(
