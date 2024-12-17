@@ -94,11 +94,11 @@ export class CryptoService {
     }
   }
 
-  private static getKeyUsages(algorithm: string): KeyUsage[] {
+  private static getPublicKeyUsages(algorithm: string): KeyUsage[] {
     if (algorithm === this.RSA_ALGORITHM) {
-      return ['encrypt', 'decrypt'];
+      return ['encrypt'];
     } else if (algorithm === this.ECC_ALGORITHM) {
-      return ['deriveKey', 'deriveBits'];
+      return [];  // Public keys in ECDH don't need any usages
     } else {
       throw new Error(`Unsupported algorithm: ${algorithm}`);
     }
@@ -114,12 +114,22 @@ export class CryptoService {
     }
   }
 
+  private static getKeyPairUsages(algorithm: string): KeyUsage[] {
+    if (algorithm === this.RSA_ALGORITHM) {
+      return ['encrypt', 'decrypt'];
+    } else if (algorithm === this.ECC_ALGORITHM) {
+      return ['deriveKey', 'deriveBits'];
+    } else {
+      throw new Error(`Unsupported algorithm: ${algorithm}`);
+    }
+  }
+
   static async generateKeyPair(options?: KeyPairOptions): Promise<CryptoKeyPair | WrappedCryptoKeyPair> {
     const params = this.getKeyGenParams(options);
     const keyPair = await crypto.subtle.generateKey(
       params,
       true,
-      this.getKeyUsages(params.name)
+      this.getKeyPairUsages(params.name)
     );
 
     if (options?.passphrase) {
@@ -154,16 +164,32 @@ export class CryptoService {
 
   static async importPublicKey(serialized: string): Promise<CryptoKey> {
     const binaryKey = Buffer.from(serialized, 'base64');
-    return crypto.subtle.importKey(
-      'spki',
-      binaryKey,
-      {
-        name: this.RSA_ALGORITHM,
-        hash: this.HASH,
-      },
-      true,
-      ['encrypt']
-    );
+    
+    try {
+      // Try RSA first
+      return await crypto.subtle.importKey(
+        'spki',
+        binaryKey,
+        {
+          name: this.RSA_ALGORITHM,
+          hash: this.HASH,
+        },
+        true,
+        this.getPublicKeyUsages(this.RSA_ALGORITHM)
+      );
+    } catch {
+      // If RSA fails, try ECC
+      return await crypto.subtle.importKey(
+        'spki',
+        binaryKey,
+        {
+          name: this.ECC_ALGORITHM,
+          namedCurve: this.DEFAULT_ECC_CURVE,
+        },
+        true,
+        this.getPublicKeyUsages(this.ECC_ALGORITHM)
+      );
+    }
   }
 
   static async importPrivateKey(
@@ -175,22 +201,43 @@ export class CryptoService {
       return this.unwrapKey(wrappedKeyData, passphrase);
     } else {
       const binaryKey = Buffer.from(serialized, 'base64');
-      const key = await crypto.subtle.importKey(
-        'pkcs8',
-        binaryKey,
-        {
-          name: this.RSA_ALGORITHM,
-          hash: this.HASH,
-        },
-        true,
-        ['decrypt']
-      );
+      try {
+        // Try RSA first
+        const key = await crypto.subtle.importKey(
+          'pkcs8',
+          binaryKey,
+          {
+            name: this.RSA_ALGORITHM,
+            hash: this.HASH,
+          },
+          true,
+          this.getPrivateKeyUsages(this.RSA_ALGORITHM)
+        );
 
-      if (passphrase) {
-        return this.unwrapKey(key, passphrase);
+        if (passphrase) {
+          return this.unwrapKey(key, passphrase);
+        }
+
+        return key;
+      } catch {
+        // If RSA fails, try ECC
+        const key = await crypto.subtle.importKey(
+          'pkcs8',
+          binaryKey,
+          {
+            name: this.ECC_ALGORITHM,
+            namedCurve: this.DEFAULT_ECC_CURVE,
+          },
+          true,
+          this.getPrivateKeyUsages(this.ECC_ALGORITHM)
+        );
+
+        if (passphrase) {
+          return this.unwrapKey(key, passphrase);
+        }
+
+        return key;
       }
-
-      return key;
     }
   }
 
@@ -203,8 +250,8 @@ export class CryptoService {
       : publicKey;
 
     // Get the algorithm from the key
-    const algorithm = (await crypto.subtle.exportKey('jwk', key)).alg?.startsWith('ECDH') ? 
-      this.ECC_ALGORITHM : this.RSA_ALGORITHM;
+    const keyAlgorithm = key.algorithm as EcKeyImportParams | RsaHashedImportParams;
+    const algorithm = keyAlgorithm.name === this.ECC_ALGORITHM ? this.ECC_ALGORITHM : this.RSA_ALGORITHM;
 
     if (algorithm === this.ECC_ALGORITHM) {
       // For ECC, we need to:
@@ -214,7 +261,7 @@ export class CryptoService {
       const ephemeralKeyPair = await crypto.subtle.generateKey(
         {
           name: this.ECC_ALGORITHM,
-          namedCurve: this.DEFAULT_ECC_CURVE,
+          namedCurve: (keyAlgorithm as EcKeyImportParams).namedCurve,
         },
         true,
         ['deriveKey', 'deriveBits']

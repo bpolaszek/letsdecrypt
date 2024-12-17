@@ -172,7 +172,7 @@ import { CryptoService, type SerializedKeyPair } from '~/utils/crypto'
 import { syncRef, whenever } from "@vueuse/core"
 
 // Key Generation
-const algorithm = ref<'RSA' | 'ECC'>('ECC')
+const algorithm = ref<'RSA' | 'ECC'>('RSA')
 const rsaModulusLength = ref<number>(2048)
 const eccCurve = ref<'P-256' | 'P-384' | 'P-521'>('P-256')
 const passphrase = ref('')
