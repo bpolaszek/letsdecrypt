@@ -7,10 +7,47 @@
       <h2 class="text-xl font-semibold mb-4">Generate Key Pair</h2>
       <div class="space-y-4">
         <div>
+          <label class="block mb-2">Algorithm</label>
+          <select
+            v-model="algorithm"
+            class="border p-2 rounded w-full"
+          >
+            <option value="RSA">RSA</option>
+            <option value="ECC">ECC (Elliptic Curve)</option>
+          </select>
+        </div>
+
+        <!-- RSA Options -->
+        <div v-if="algorithm === 'RSA'">
+          <label class="block mb-2">RSA Key Length</label>
+          <select
+            v-model="rsaModulusLength"
+            class="border p-2 rounded w-full"
+          >
+            <option :value="2048">2048 bits (Standard)</option>
+            <option :value="3072">3072 bits (Extra Strong)</option>
+            <option :value="4096">4096 bits (Maximum Security)</option>
+          </select>
+        </div>
+
+        <!-- ECC Options -->
+        <div v-if="algorithm === 'ECC'">
+          <label class="block mb-2">ECC Curve</label>
+          <select
+            v-model="eccCurve"
+            class="border p-2 rounded w-full"
+          >
+            <option value="P-256">P-256 (Standard)</option>
+            <option value="P-384">P-384 (Extra Strong)</option>
+            <option value="P-521">P-521 (Maximum Security)</option>
+          </select>
+        </div>
+
+        <div>
           <label class="block mb-2">Passphrase (optional)</label>
           <input
             v-model="passphrase"
-            type="password"
+            type="text"
             class="border p-2 rounded w-full"
             placeholder="Enter passphrase"
           />
@@ -97,7 +134,7 @@
           <label class="block mb-2">Passphrase (if required)</label>
           <input
             v-model="decryptionPassphrase"
-            type="password"
+            type="text"
             class="border p-2 rounded w-full"
             placeholder="Enter passphrase"
           />
@@ -122,7 +159,6 @@
         <label class="block mb-2">Decrypted Message</label>
         <textarea
           v-model="decryptedMessage"
-          readonly
           class="border p-2 rounded w-full h-32"
         ></textarea>
       </div>
@@ -133,15 +169,19 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { CryptoService, type SerializedKeyPair } from '~/utils/crypto'
+import { syncRef, whenever } from "@vueuse/core"
 
 // Key Generation
+const algorithm = ref<'RSA' | 'ECC'>('ECC')
+const rsaModulusLength = ref<number>(2048)
+const eccCurve = ref<'P-256' | 'P-384' | 'P-521'>('P-256')
 const passphrase = ref('')
 const keyPair = ref<CryptoKeyPair | null>(null)
 const serializedKeys = ref<SerializedKeyPair>({ publicKey: '', privateKey: '' })
 
 // Encryption
 const encryptionPublicKey = ref('')
-const messageToEncrypt = ref('')
+const messageToEncrypt = ref('toto')
 const encryptedSecret = ref<Secret | null>(null)
 const serializedSecret = ref('')
 
@@ -151,15 +191,27 @@ const decryptionPassphrase = ref('')
 const secretToDecrypt = ref('')
 const decryptedMessage = ref('')
 
+syncRef(passphrase, decryptionPassphrase, {direction: 'ltr'})
+syncRef(serializedSecret, secretToDecrypt, {direction: 'ltr'})
+whenever(serializedKeys, () => {
+  encryptionPublicKey.value = serializedKeys.value.publicKey
+  decryptionPrivateKey.value = serializedKeys.value.privateKey
+})
+
 async function generateKeyPair() {
   try {
-    keyPair.value = await CryptoService.generateKeyPair({
+    const options = {
+      algorithm: algorithm.value,
       passphrase: passphrase.value || undefined,
-    })
+      ...(algorithm.value === 'RSA' ? { rsaModulusLength: rsaModulusLength.value } : {}),
+      ...(algorithm.value === 'ECC' ? { eccCurve: eccCurve.value } : {})
+    }
+
+    keyPair.value = await CryptoService.generateKeyPair(options)
     serializedKeys.value = await CryptoService.exportKeyPair(keyPair.value)
   } catch (e) {
     console.error('Error generating key pair:', (e as Error).message)
-    throw e
+    alert('Failed to generate key pair: ' + (e as Error).message)
   }
 }
 

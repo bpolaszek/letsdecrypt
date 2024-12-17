@@ -2,6 +2,9 @@ import { Buffer } from 'buffer';
 
 export interface KeyPairOptions {
   passphrase?: string;
+  algorithm?: 'RSA' | 'ECC';
+  rsaModulusLength?: number;
+  eccCurve?: 'P-256' | 'P-384' | 'P-521';
 }
 
 export interface SerializedKeyPair {
@@ -14,11 +17,14 @@ export interface SecretMetadata {
   keyHash: string;
   iv: string;
   symmetricKey: string;
+  publicKey?: string; // For ECC, we need to store the ephemeral public key
 }
 
 export interface WrappedKeyData {
   wrappedKey: string; // base64 encoded
   iv: string; // base64 encoded
+  algorithm: string; // The algorithm used for the key
+  format: string; // The format of the wrapped key
 }
 
 export interface CryptoKeyPair {
@@ -62,27 +68,63 @@ export class Secret {
 }
 
 export class CryptoService {
-  private static readonly ALGORITHM = 'RSA-OAEP';
+  private static readonly RSA_ALGORITHM = 'RSA-OAEP';
+  private static readonly ECC_ALGORITHM = 'ECDH';
   private static readonly SYMMETRIC_ALGORITHM = 'AES-GCM';
   private static readonly WRAP_ALGORITHM = 'AES-KW';
-  private static readonly KEY_LENGTH = 2048;
+  private static readonly DEFAULT_RSA_LENGTH = 2048;
+  private static readonly DEFAULT_ECC_CURVE = 'P-256';
   private static readonly HASH = 'SHA-256';
 
-  static async generateKeyPair(options?: KeyPairOptions): Promise<CryptoKeyPair | WrappedCryptoKeyPair> {
-    const keyPair = await crypto.subtle.generateKey(
-      {
-        name: this.ALGORITHM,
-        modulusLength: this.KEY_LENGTH,
+  private static getKeyGenParams(options?: KeyPairOptions): RsaHashedKeyGenParams | EcKeyGenParams {
+    const algorithm = options?.algorithm || 'RSA';
+    
+    if (algorithm === 'RSA') {
+      return {
+        name: this.RSA_ALGORITHM,
+        modulusLength: options?.rsaModulusLength || this.DEFAULT_RSA_LENGTH,
         publicExponent: new Uint8Array([1, 0, 1]),
         hash: this.HASH,
-      },
+      };
+    } else {
+      return {
+        name: this.ECC_ALGORITHM,
+        namedCurve: options?.eccCurve || this.DEFAULT_ECC_CURVE,
+      };
+    }
+  }
+
+  private static getKeyUsages(algorithm: string): KeyUsage[] {
+    if (algorithm === this.RSA_ALGORITHM) {
+      return ['encrypt', 'decrypt'];
+    } else if (algorithm === this.ECC_ALGORITHM) {
+      return ['deriveKey', 'deriveBits'];
+    } else {
+      throw new Error(`Unsupported algorithm: ${algorithm}`);
+    }
+  }
+
+  private static getPrivateKeyUsages(algorithm: string): KeyUsage[] {
+    if (algorithm === this.RSA_ALGORITHM) {
+      return ['decrypt'];
+    } else if (algorithm === this.ECC_ALGORITHM) {
+      return ['deriveKey', 'deriveBits'];
+    } else {
+      throw new Error(`Unsupported algorithm: ${algorithm}`);
+    }
+  }
+
+  static async generateKeyPair(options?: KeyPairOptions): Promise<CryptoKeyPair | WrappedCryptoKeyPair> {
+    const params = this.getKeyGenParams(options);
+    const keyPair = await crypto.subtle.generateKey(
+      params,
       true,
-      ['encrypt', 'decrypt']
+      this.getKeyUsages(params.name)
     );
 
     if (options?.passphrase) {
       // If passphrase provided, wrap the private key
-      const wrappedPrivateKey = await this.wrapKey(keyPair.privateKey, options.passphrase);
+      const wrappedPrivateKey = await this.wrapKey(keyPair.privateKey, options.passphrase, params.name);
       return {
         publicKey: keyPair.publicKey,
         privateKey: wrappedPrivateKey,
@@ -116,7 +158,7 @@ export class CryptoService {
       'spki',
       binaryKey,
       {
-        name: this.ALGORITHM,
+        name: this.RSA_ALGORITHM,
         hash: this.HASH,
       },
       true,
@@ -137,7 +179,7 @@ export class CryptoService {
         'pkcs8',
         binaryKey,
         {
-          name: this.ALGORITHM,
+          name: this.RSA_ALGORITHM,
           hash: this.HASH,
         },
         true,
@@ -160,52 +202,118 @@ export class CryptoService {
       ? await this.importPublicKey(publicKey)
       : publicKey;
 
-    // Generate a symmetric key for the actual data encryption
-    const symmetricKey = await crypto.subtle.generateKey(
-      {
-        name: this.SYMMETRIC_ALGORITHM,
-        length: 256,
-      },
-      true,
-      ['encrypt', 'decrypt']
-    );
+    // Get the algorithm from the key
+    const algorithm = (await crypto.subtle.exportKey('jwk', key)).alg?.startsWith('ECDH') ? 
+      this.ECC_ALGORITHM : this.RSA_ALGORITHM;
 
-    // Generate IV
-    const iv = crypto.getRandomValues(new Uint8Array(12));
+    if (algorithm === this.ECC_ALGORITHM) {
+      // For ECC, we need to:
+      // 1. Generate an ephemeral key pair
+      // 2. Derive a shared secret using ECDH
+      // 3. Use the shared secret to encrypt the data
+      const ephemeralKeyPair = await crypto.subtle.generateKey(
+        {
+          name: this.ECC_ALGORITHM,
+          namedCurve: this.DEFAULT_ECC_CURVE,
+        },
+        true,
+        ['deriveKey', 'deriveBits']
+      ) as CryptoKeyPair;
 
-    // Encrypt the data with the symmetric key
-    const encodedData = new TextEncoder().encode(data);
-    const encryptedData = await crypto.subtle.encrypt(
-      {
-        name: this.SYMMETRIC_ALGORITHM,
-        iv,
-      },
-      symmetricKey,
-      encodedData
-    );
+      // Derive the shared secret
+      const sharedSecret = await crypto.subtle.deriveKey(
+        {
+          name: this.ECC_ALGORITHM,
+          public: key,
+        },
+        ephemeralKeyPair.privateKey,
+        {
+          name: this.SYMMETRIC_ALGORITHM,
+          length: 256
+        },
+        false,
+        ['encrypt']
+      );
 
-    // Export and encrypt the symmetric key with the public key
-    const exportedSymKey = await crypto.subtle.exportKey('raw', symmetricKey);
-    const encryptedSymKey = await crypto.subtle.encrypt(
-      {
-        name: this.ALGORITHM,
-      },
-      key,
-      exportedSymKey
-    );
+      // Generate IV
+      const iv = crypto.getRandomValues(new Uint8Array(12));
 
-    // Create metadata
-    const metadata: SecretMetadata = {
-      algorithm: this.ALGORITHM,
-      keyHash: await this.hashKey(key),
-      iv: Buffer.from(iv).toString('base64'),
-      symmetricKey: Buffer.from(encryptedSymKey).toString('base64'),
-    };
+      // Encrypt the data with the derived key
+      const encodedData = new TextEncoder().encode(data);
+      const encryptedData = await crypto.subtle.encrypt(
+        {
+          name: this.SYMMETRIC_ALGORITHM,
+          iv,
+        },
+        sharedSecret,
+        encodedData
+      );
 
-    return new Secret(
-      Buffer.from(encryptedData).toString('base64'),
-      metadata
-    );
+      // Export the ephemeral public key - we'll need it for decryption
+      const exportedEphemeralKey = await crypto.subtle.exportKey('spki', ephemeralKeyPair.publicKey);
+
+      // Create metadata
+      const metadata: SecretMetadata = {
+        algorithm: this.ECC_ALGORITHM,
+        keyHash: await this.hashKey(key),
+        iv: Buffer.from(iv).toString('base64'),
+        symmetricKey: '', // Not needed for ECC
+        publicKey: Buffer.from(exportedEphemeralKey).toString('base64')
+      };
+
+      return new Secret(
+        Buffer.from(encryptedData).toString('base64'),
+        metadata
+      );
+    } else {
+      // RSA encryption path (unchanged)
+      // Generate a symmetric key for the actual data encryption
+      const symmetricKey = await crypto.subtle.generateKey(
+        {
+          name: this.SYMMETRIC_ALGORITHM,
+          length: 256,
+        },
+        true,
+        ['encrypt', 'decrypt']
+      );
+
+      // Generate IV
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+
+      // Encrypt the data with the symmetric key
+      const encodedData = new TextEncoder().encode(data);
+      const encryptedData = await crypto.subtle.encrypt(
+        {
+          name: this.SYMMETRIC_ALGORITHM,
+          iv,
+        },
+        symmetricKey,
+        encodedData
+      );
+
+      // Export and encrypt the symmetric key with the public key
+      const exportedSymKey = await crypto.subtle.exportKey('raw', symmetricKey);
+      const encryptedSymKey = await crypto.subtle.encrypt(
+        {
+          name: this.RSA_ALGORITHM,
+        },
+        key,
+        exportedSymKey
+      );
+
+      // Create metadata
+      const metadata: SecretMetadata = {
+        algorithm: this.RSA_ALGORITHM,
+        keyHash: await this.hashKey(key),
+        iv: Buffer.from(iv).toString('base64'),
+        symmetricKey: Buffer.from(encryptedSymKey).toString('base64')
+      };
+
+      return new Secret(
+        Buffer.from(encryptedData).toString('base64'),
+        metadata
+      );
+    }
   }
 
   static async decrypt(
@@ -224,50 +332,101 @@ export class CryptoService {
       key = privateKey;
     }
 
-    // Decrypt the symmetric key
-    const encryptedSymKey = Buffer.from(secretObj.getMetadata().symmetricKey, 'base64');
-    const symmetricKeyBuffer = await crypto.subtle.decrypt(
-      {
-        name: this.ALGORITHM,
-      },
-      key,
-      encryptedSymKey
-    );
+    const metadata = secretObj.getMetadata();
+    if (metadata.algorithm === this.ECC_ALGORITHM) {
+      // Import the ephemeral public key
+      const ephemeralPublicKey = await crypto.subtle.importKey(
+        'spki',
+        Buffer.from(metadata.publicKey, 'base64'),
+        {
+          name: this.ECC_ALGORITHM,
+          namedCurve: this.DEFAULT_ECC_CURVE,
+        },
+        true,
+        []
+      );
 
-    // Import the symmetric key
-    const symmetricKey = await crypto.subtle.importKey(
-      'raw',
-      symmetricKeyBuffer,
-      {
-        name: this.SYMMETRIC_ALGORITHM,
-        length: 256,
-      },
-      false,
-      ['decrypt']
-    );
+      // Derive the same shared secret
+      const sharedSecret = await crypto.subtle.deriveKey(
+        {
+          name: this.ECC_ALGORITHM,
+          public: ephemeralPublicKey,
+        },
+        key,
+        {
+          name: this.SYMMETRIC_ALGORITHM,
+          length: 256
+        },
+        false,
+        ['decrypt']
+      );
 
-    // Decrypt the data
-    const encryptedData = Buffer.from(secretObj.getEncryptedData(), 'base64');
-    const iv = Buffer.from(secretObj.getMetadata().iv, 'base64');
+      // Decrypt the data
+      const encryptedData = Buffer.from(secretObj.getEncryptedData(), 'base64');
+      const iv = Buffer.from(metadata.iv, 'base64');
 
-    const decryptedData = await crypto.subtle.decrypt(
-      {
-        name: this.SYMMETRIC_ALGORITHM,
-        iv,
-      },
-      symmetricKey,
-      encryptedData
-    );
+      const decryptedData = await crypto.subtle.decrypt(
+        {
+          name: this.SYMMETRIC_ALGORITHM,
+          iv,
+        },
+        sharedSecret,
+        encryptedData
+      );
 
-    return new TextDecoder().decode(decryptedData);
+      return new TextDecoder().decode(decryptedData);
+    } else {
+      // RSA decryption path (unchanged)
+      // Decrypt the symmetric key
+      const encryptedSymKey = Buffer.from(metadata.symmetricKey, 'base64');
+      const symmetricKeyBuffer = await crypto.subtle.decrypt(
+        {
+          name: this.RSA_ALGORITHM,
+        },
+        key,
+        encryptedSymKey
+      );
+
+      // Import the symmetric key
+      const symmetricKey = await crypto.subtle.importKey(
+        'raw',
+        symmetricKeyBuffer,
+        {
+          name: this.SYMMETRIC_ALGORITHM,
+          length: 256,
+        },
+        false,
+        ['decrypt']
+      );
+
+      // Decrypt the data
+      const encryptedData = Buffer.from(secretObj.getEncryptedData(), 'base64');
+      const iv = Buffer.from(metadata.iv, 'base64');
+
+      const decryptedData = await crypto.subtle.decrypt(
+        {
+          name: this.SYMMETRIC_ALGORITHM,
+          iv,
+        },
+        symmetricKey,
+        encryptedData
+      );
+
+      return new TextDecoder().decode(decryptedData);
+    }
   }
 
   private static async wrapKey(
     key: CryptoKey,
-    passphrase: string
+    passphrase: string,
+    algorithm: string
   ): Promise<WrappedKeyData> {
     // First export the private key to wrap it
-    const keyData = await crypto.subtle.exportKey('pkcs8', key);
+    const format = algorithm === this.ECC_ALGORITHM ? 'jwk' : 'pkcs8';
+    const keyData = await crypto.subtle.exportKey(format, key);
+    const keyBytes = format === 'jwk' ? 
+      new TextEncoder().encode(JSON.stringify(keyData)) :
+      new Uint8Array(keyData);
     
     // Generate a wrapping key from the passphrase
     const wrappingKey = await this.generateKeyFromPassphrase(passphrase);
@@ -279,13 +438,15 @@ export class CryptoService {
     const wrapped = await crypto.subtle.encrypt(
       { name: this.SYMMETRIC_ALGORITHM, iv },
       wrappingKey,
-      keyData
+      keyBytes
     );
     
-    // Return the wrapped key data in base64 format
+    // Return the wrapped key data in base64 format with format information
     return {
       wrappedKey: Buffer.from(wrapped).toString('base64'),
-      iv: Buffer.from(iv).toString('base64')
+      iv: Buffer.from(iv).toString('base64'),
+      algorithm,
+      format // Add format information
     };
   }
 
@@ -306,17 +467,24 @@ export class CryptoService {
       unwrappingKey,
       wrappedKey
     );
-    
-    // Import the unwrapped key
+
+    // Handle the unwrapped data based on the original format
+    const format = (wrappedData as any).format || (wrappedData.algorithm === this.ECC_ALGORITHM ? 'jwk' : 'pkcs8');
+    const keyData = format === 'jwk' ? 
+      JSON.parse(new TextDecoder().decode(unwrappedData)) :
+      unwrappedData;
+
+    // Import the key with the correct algorithm parameters
+    const importParams = wrappedData.algorithm === this.ECC_ALGORITHM ?
+      { name: this.ECC_ALGORITHM, namedCurve: this.DEFAULT_ECC_CURVE } :
+      { name: this.RSA_ALGORITHM, hash: this.HASH };
+
     return crypto.subtle.importKey(
-      'pkcs8',
-      unwrappedData,
-      {
-        name: this.ALGORITHM,
-        hash: this.HASH,
-      },
+      format,
+      keyData,
+      importParams,
       true,
-      ['decrypt']
+      this.getPrivateKeyUsages(wrappedData.algorithm)
     );
   }
 
