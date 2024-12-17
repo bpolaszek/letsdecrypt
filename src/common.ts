@@ -1,8 +1,11 @@
 import { Buffer } from "buffer"
 
+export type Algorithm = 'RSA' | 'ECC'
+export type AlgorithmId = 'RSA-OAEP' | 'ECDH'
+
 export interface KeyPairOptions {
   passphrase?: string;
-  algorithm?: 'RSA' | 'ECC';
+  algorithm?: Algorithm;
   rsaModulusLength?: number;
   eccCurve?: 'P-256' | 'P-384' | 'P-521';
 }
@@ -33,7 +36,7 @@ export interface CryptoKeyPair {
 }
 
 export interface WrappedCryptoKeyPair {
-  publicKey: CryptoKey;
+  publicKey: WrappedKeyData;
   privateKey: WrappedKeyData;
 }
 
@@ -77,14 +80,20 @@ export abstract class CryptoService {
   protected static readonly DEFAULT_ECC_CURVE = 'P-256'
   protected static readonly HASH = 'SHA-256'
 
-  protected static getPublicKeyUsages(algorithm: string): KeyUsage[] {
-    throw Error('Abstract static method getPublicKeyUsages was not implemented.')
+  protected static getPublicKeyUsages(): KeyUsage[] {
+    throw Error('Abstract static method getPublicKeyUsages has not been implemented.')
   }
-  protected static getPrivateKeyUsages(algorithm: string): KeyUsage[] {
-    throw Error('Abstract static method getPrivateKeyUsages was not implemented.')
+
+  protected static getPrivateKeyUsages(): KeyUsage[] {
+    throw Error('Abstract static method getPrivateKeyUsages has not been implemented.')
   }
-  protected static getKeyPairUsages(algorithm: string): KeyUsage[] {
-    throw Error('Abstract static method getKeyPairUsages was not implemented.')
+
+  protected static getKeyPairUsages(): KeyUsage[] {
+    throw Error('Abstract static method getKeyPairUsages has not been implemented.')
+  }
+
+  protected static getAlgorithm(): AlgorithmId {
+    throw Error('Abstract static method getAlgorithm has not been implemented.')
   }
 
   protected static async generateKeyFromPassphrase(
@@ -116,7 +125,16 @@ export abstract class CryptoService {
     )
   }
 
-  protected static async wrapKey(
+  protected static async wrapPublicKey(key: CryptoKey, algorithm: string): Promise<WrappedKeyData> {
+    return {
+      wrappedKey: Buffer.from(await crypto.subtle.exportKey('spki', key)).toString('base64'),
+      iv: Buffer.from(crypto.getRandomValues(new Uint8Array(12))).toString('base64'),
+      format: 'spki',
+      algorithm,
+    }
+  }
+
+  protected static async wrapPrivateKey(
     key: CryptoKey,
     passphrase: string,
     algorithm: string,
@@ -164,20 +182,20 @@ export abstract class CryptoService {
     const keyPair = await crypto.subtle.generateKey(
       params,
       true,
-      this.getKeyPairUsages(params.name),
+      this.getKeyPairUsages(),
     )
     // If passphrase provided, wrap the private key
-    const wrappedPrivateKey = await this.wrapKey(keyPair.privateKey, options?.passphrase ?? '', params.name)
+    const wrappedPrivateKey = await this.wrapPrivateKey(keyPair.privateKey, options?.passphrase ?? '', params.name)
+    const wrappedPublicKey = await this.wrapPublicKey(keyPair.publicKey, params.name)
     return {
-      publicKey: keyPair.publicKey,
+      publicKey: wrappedPublicKey,
       privateKey: wrappedPrivateKey,
     }
   }
 
   static async exportKeyPair(keyPair: CryptoKeyPair | WrappedCryptoKeyPair): Promise<SerializedKeyPair> {
-    const exportedPublic = await crypto.subtle.exportKey('spki', keyPair.publicKey)
     return {
-      publicKey: Buffer.from(exportedPublic).toString('base64'),
+      publicKey: JSON.stringify(keyPair.publicKey),
       privateKey: JSON.stringify(keyPair.privateKey),
     }
   }
@@ -186,5 +204,64 @@ export abstract class CryptoService {
     const exported = await crypto.subtle.exportKey('spki', key)
     const hashBuffer = await crypto.subtle.digest(this.HASH, exported)
     return Buffer.from(hashBuffer).toString('hex')
+  }
+
+  static async importPublicKey(serialized: string): Promise<CryptoKey> {
+    const {wrappedKey} = JSON.parse(serialized)
+    const binaryKey = Buffer.from(wrappedKey, 'base64')
+    return await crypto.subtle.importKey(
+      'spki',
+      binaryKey,
+      {
+        name: this.getAlgorithm(),
+        hash: this.HASH,
+      },
+      true,
+      this.getPublicKeyUsages(),
+    )
+  }
+
+  protected static async unwrapKey(
+    wrappedData: WrappedKeyData,
+    passphrase: string,
+  ): Promise<CryptoKey> {
+    // Generate the unwrapping key from the passphrase
+    const unwrappingKey = await this.generateKeyFromPassphrase(passphrase)
+
+    // Decode the wrapped key and IV from base64
+    const wrappedKey = Buffer.from(wrappedData.wrappedKey, 'base64')
+    const iv = Buffer.from(wrappedData.iv, 'base64')
+
+    // Decrypt the wrapped key
+    const unwrappedData = await crypto.subtle.decrypt(
+      {name: this.SYMMETRIC_ALGORITHM, iv},
+      unwrappingKey,
+      wrappedKey,
+    )
+
+    // Handle the unwrapped data based on the original format
+    const format = (wrappedData as any).format || 'pkcs8'
+    const keyData = format === 'jwk' ?
+      JSON.parse(new TextDecoder().decode(unwrappedData)) :
+      unwrappedData
+
+    return crypto.subtle.importKey(
+      format,
+      keyData,
+      {
+        name: this.RSA_ALGORITHM,
+        hash: this.HASH,
+      },
+      true,
+      this.getPrivateKeyUsages(),
+    )
+  }
+
+  static async importPrivateKey(
+    serialized: string,
+    passphrase?: string,
+  ): Promise<CryptoKey> {
+    const wrappedKeyData: WrappedKeyData = JSON.parse(serialized)
+    return this.unwrapKey(wrappedKeyData, passphrase ?? '')
   }
 }

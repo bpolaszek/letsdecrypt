@@ -1,40 +1,22 @@
-import { CryptoService, Secret, type SecretMetadata, type WrappedKeyData } from "./common"
+import { type AlgorithmId, CryptoService, Secret, type SecretMetadata, type WrappedKeyData } from "./common"
 import { Buffer } from "buffer"
 
 export class Rsa extends CryptoService {
 
-  protected static override getPublicKeyUsages(algorithm: string): KeyUsage[] {
+  protected static override getPublicKeyUsages(): KeyUsage[] {
     return ['encrypt']
   }
 
-  protected static override getPrivateKeyUsages(algorithm: string): KeyUsage[] {
+  protected static override getPrivateKeyUsages(): KeyUsage[] {
     return ['decrypt']
   }
 
-  protected static override getKeyPairUsages(algorithm: string): KeyUsage[] {
+  protected static override getKeyPairUsages(): KeyUsage[] {
     return ['encrypt', 'decrypt']
   }
 
-  static async importPublicKey(serialized: string): Promise<CryptoKey> {
-    const binaryKey = Buffer.from(serialized, 'base64')
-    return await crypto.subtle.importKey(
-      'spki',
-      binaryKey,
-      {
-        name: this.RSA_ALGORITHM,
-        hash: this.HASH,
-      },
-      true,
-      this.getPublicKeyUsages(this.RSA_ALGORITHM),
-    )
-  }
-
-  static async importPrivateKey(
-    serialized: string,
-    passphrase?: string,
-  ): Promise<CryptoKey> {
-    const wrappedKeyData: WrappedKeyData = JSON.parse(serialized)
-    return this.unwrapKey(wrappedKeyData, passphrase ?? '')
+  protected static override getAlgorithm(): AlgorithmId {
+    return 'RSA-OAEP'
   }
 
   static async encrypt(
@@ -147,41 +129,5 @@ export class Rsa extends CryptoService {
     )
 
     return new TextDecoder().decode(decryptedData)
-  }
-
-  private static async unwrapKey(
-    wrappedData: WrappedKeyData,
-    passphrase: string,
-  ): Promise<CryptoKey> {
-    // Generate the unwrapping key from the passphrase
-    const unwrappingKey = await this.generateKeyFromPassphrase(passphrase)
-
-    // Decode the wrapped key and IV from base64
-    const wrappedKey = Buffer.from(wrappedData.wrappedKey, 'base64')
-    const iv = Buffer.from(wrappedData.iv, 'base64')
-
-    // Decrypt the wrapped key
-    const unwrappedData = await crypto.subtle.decrypt(
-      {name: this.SYMMETRIC_ALGORITHM, iv},
-      unwrappingKey,
-      wrappedKey,
-    )
-
-    // Handle the unwrapped data based on the original format
-    const format = (wrappedData as any).format || 'pkcs8'
-    const keyData = format === 'jwk' ?
-      JSON.parse(new TextDecoder().decode(unwrappedData)) :
-      unwrappedData
-
-    return crypto.subtle.importKey(
-      format,
-      keyData,
-      {
-        name: this.RSA_ALGORITHM,
-        hash: this.HASH
-      },
-      true,
-      this.getPrivateKeyUsages(wrappedData.algorithm),
-    )
   }
 }

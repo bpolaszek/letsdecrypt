@@ -19,7 +19,7 @@ describe.each([
       passphrase,
     })
     const {publicKey, privateKey} = keyPair
-    expect(publicKey).toBeInstanceOf(CryptoKey)
+    expect(publicKey).toBeDefined()
     expect(privateKey).toBeDefined()
   })
 
