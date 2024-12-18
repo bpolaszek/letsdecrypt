@@ -1,6 +1,5 @@
 import {Buffer} from 'buffer'
 
-const ECC_ALGORITHM = 'ECDH'
 const SYMMETRIC_ALGORITHM = 'AES-GCM'
 const HASH = 'SHA-256'
 
@@ -106,10 +105,9 @@ export const wrapPrivateKey = async (
   namedCurve?: string
 ): Promise<WrappedKeyData> => {
   // First export the private key to wrap it
-  const format = algorithm === ECC_ALGORITHM ? 'jwk' : 'pkcs8'
+  const format = 'jwk'
   const keyData = await crypto.subtle.exportKey(format, key)
-  const keyBytes =
-    format === 'jwk' ? new TextEncoder().encode(JSON.stringify(keyData)) : new Uint8Array(keyData as ArrayBuffer)
+  const keyBytes = new TextEncoder().encode(JSON.stringify(keyData))
 
   // Generate a wrapping key from the passphrase
   const wrappingKey = await generateKeyFromPassphrase(passphrase)

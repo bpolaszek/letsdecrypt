@@ -11,21 +11,7 @@ import {
 } from './common'
 import match from 'match-operator'
 
-export const generateKeyPair = async (options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> => {
-  return match(options?.algorithm ?? 'RSA', [
-    ['RSA', () => Rsa.generateKeyPair(options)],
-    ['ECC', () => Ecc.generateKeyPair(options)],
-  ]) as unknown as Promise<WrappedCryptoKeyPair>
-}
-
-export const exportKeyPair = async (keyPair: CryptoKeyPair | WrappedCryptoKeyPair): Promise<SerializedKeyPair> => {
-  return {
-    publicKey: JSON.stringify(keyPair.publicKey),
-    privateKey: JSON.stringify(keyPair.privateKey),
-  }
-}
-
-export const importPublicKey = async (publicKey: MaybeSerializedKey): Promise<CryptoKey> => {
+const importPublicKey = async (publicKey: MaybeSerializedKey): Promise<CryptoKey> => {
   let wrappedKeyData: WrappedKeyData
   if ('string' === typeof publicKey) {
     wrappedKeyData = JSON.parse(publicKey)
@@ -53,6 +39,21 @@ export const importPrivateKey = async (privateKey: MaybeSerializedKey, passphras
     ['RSA-OAEP', () => Rsa.importPrivateKey(wrappedKeyData, passphrase ?? '')],
     ['ECDH', () => Ecc.importPrivateKey(wrappedKeyData, passphrase ?? '')],
   ]) as unknown as Promise<CryptoKey>
+}
+
+
+export const generateKeyPair = async (options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> => {
+  return match(options?.algorithm ?? 'RSA', [
+    ['RSA', () => Rsa.generateKeyPair(options)],
+    ['ECC', () => Ecc.generateKeyPair(options)],
+  ]) as unknown as Promise<WrappedCryptoKeyPair>
+}
+
+export const exportKeyPair = async (keyPair: CryptoKeyPair | WrappedCryptoKeyPair): Promise<SerializedKeyPair> => {
+  return {
+    publicKey: JSON.stringify(keyPair.publicKey),
+    privateKey: JSON.stringify(keyPair.privateKey),
+  }
 }
 
 export const encrypt = async (data: string, publicKey: MaybeSerializedKey): Promise<Secret> => {
