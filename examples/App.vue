@@ -1,6 +1,6 @@
 <template>
   <div class="container mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-6">Crypto Library Demo</h1>
+    <h1 class="text-2xl font-bold mb-6">Let's Decrypt</h1>
 
     <!-- Key Generation -->
     <section class="mb-8">
@@ -85,7 +85,10 @@
       <h2 class="text-xl font-semibold mb-4">Encrypt Message</h2>
       <div class="space-y-4">
         <div>
-          <label class="block mb-2">Public Key</label>
+          <div class="flex mb-2 items-center gap-3">
+            <label>Public Key</label>
+            <button type="button" class="text-xs opacity-60 text-light" @click="encryptionPublicKey = serializedKeys.publicKey">Paste from above</button>
+          </div>
           <textarea
             v-model="encryptionPublicKey"
             class="border p-2 rounded w-full h-32"
@@ -123,7 +126,10 @@
       <h2 class="text-xl font-semibold mb-4">Decrypt Message</h2>
       <div class="space-y-4">
         <div>
-          <label class="block mb-2">Private Key</label>
+          <div class="flex mb-2 items-center gap-3">
+            <label>Private Key</label>
+            <button type="button" class="text-xs opacity-60 text-light" @click="decryptionPrivateKey = serializedKeys.privateKey">Paste from above</button>
+          </div>
           <textarea
             v-model="decryptionPrivateKey"
             class="border p-2 rounded w-full h-32"
@@ -131,7 +137,10 @@
           ></textarea>
         </div>
         <div>
-          <label class="block mb-2">Passphrase (if required)</label>
+          <div class="flex mb-2 items-center gap-3">
+            <label>Passphrase (if required)</label>
+            <button type="button" class="text-xs opacity-60 text-light" @click="decryptionPassphrase = passphrase">Paste from above</button>
+          </div>
           <input
             v-model="decryptionPassphrase"
             type="text"
@@ -140,7 +149,10 @@
           />
         </div>
         <div>
-          <label class="block mb-2">Encrypted Secret</label>
+          <div class="flex mb-2 items-center gap-3">
+            <label>Encrypted Secret</label>
+            <button type="button" class="text-xs opacity-60 text-light" @click="secretToDecrypt = serializedSecret">Paste from above</button>
+          </div>
           <textarea
             v-model="secretToDecrypt"
             class="border p-2 rounded w-full h-32"
@@ -168,11 +180,10 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { CryptoService, type SerializedKeyPair, type Secret } from '~/src'
-import { syncRef, whenever } from "@vueuse/core"
+import { CryptoService, type SerializedKeyPair, type Secret } from '../src'
 
 // Key Generation
-const algorithm = ref<'RSA' | 'ECC'>('ECC')
+const algorithm = ref<'RSA' | 'ECC'>('RSA')
 const rsaModulusLength = ref<number>(2048)
 const eccCurve = ref<'P-256' | 'P-384' | 'P-521'>('P-256')
 const passphrase = ref('')
@@ -181,7 +192,9 @@ const serializedKeys = ref<SerializedKeyPair>({ publicKey: '', privateKey: '' })
 
 // Encryption
 const encryptionPublicKey = ref('')
-const messageToEncrypt = ref('toto')
+const messageToEncrypt = ref(`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Maecenas metus purus, ultricies eget urna eu, ultricies suscipit sapien. Aliquam molestie suscipit dolor, et egestas ex bibendum ac.
+Donec ac laoreet massa, ac lobortis ex. Fusce ac urna dolor. Etiam in consequat nibh. Vivamus ante tortor, congue ac diam in, viverra sollicitudin tortor.
+Fusce ipsum diam, molestie a cursus id, vehicula posuere ipsum. Proin in eros est. Vivamus tincidunt, leo eget placerat ultrices, ante erat pharetra lacus, eget sodales mi libero sed risus.`)
 const encryptedSecret = ref<Secret | null>(null)
 const serializedSecret = ref('')
 
@@ -190,13 +203,6 @@ const decryptionPrivateKey = ref('')
 const decryptionPassphrase = ref('')
 const secretToDecrypt = ref('')
 const decryptedMessage = ref('')
-
-syncRef(passphrase, decryptionPassphrase, {direction: 'ltr'})
-syncRef(serializedSecret, secretToDecrypt, {direction: 'ltr'})
-whenever(serializedKeys, () => {
-  encryptionPublicKey.value = serializedKeys.value.publicKey
-  decryptionPrivateKey.value = serializedKeys.value.privateKey
-})
 
 async function generateKeyPair() {
   try {
