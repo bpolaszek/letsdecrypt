@@ -1,4 +1,5 @@
 import {
+  CryptoServiceAlgorithmInterface,
   generateKeyFromPassphrase,
   hashKey,
   type KeyPairOptions,
@@ -11,7 +12,6 @@ import {
   wrapPublicKey,
 } from './common'
 import {Buffer} from 'buffer'
-import {CryptoServiceAlgorithmInterface} from './index.ts'
 
 const ECC_ALGORITHM = 'ECDH'
 const DEFAULT_ECC_CURVE = 'P-256'

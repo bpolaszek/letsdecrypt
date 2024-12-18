@@ -145,7 +145,8 @@
 
 <script setup lang="ts">
 import {ref} from 'vue'
-import {CryptoService, type SerializedKeyPair, type Secret} from '../src'
+import { Secret, SerializedKeyPair } from "../src/common"
+import { decrypt, encrypt, exportKeyPair, generateKeyPair as doGenerateKeyPair } from "../src"
 
 // Key Generation
 const algorithm = ref<'RSA' | 'ECC'>('RSA')
@@ -179,8 +180,8 @@ async function generateKeyPair() {
       ...(algorithm.value === 'ECC' ? {eccCurve: eccCurve.value} : {}),
     }
 
-    keyPair.value = await CryptoService.generateKeyPair(options)
-    serializedKeys.value = await CryptoService.exportKeyPair(keyPair.value)
+    keyPair.value = await doGenerateKeyPair(options)
+    serializedKeys.value = await exportKeyPair(keyPair.value)
   } catch (e) {
     console.error('Error generating key pair:', (e as Error).message)
     alert('Failed to generate key pair: ' + (e as Error).message)
@@ -194,7 +195,7 @@ async function encryptMessage() {
       return
     }
 
-    encryptedSecret.value = await CryptoService.encrypt(messageToEncrypt.value, encryptionPublicKey.value)
+    encryptedSecret.value = await encrypt(messageToEncrypt.value, encryptionPublicKey.value)
     serializedSecret.value = JSON.stringify(encryptedSecret.value)
   } catch (error) {
     console.error('Error encrypting message:', error)
@@ -209,7 +210,7 @@ async function decryptMessage() {
       return
     }
 
-    decryptedMessage.value = await CryptoService.decrypt(
+    decryptedMessage.value = await decrypt(
       secretToDecrypt.value,
       decryptionPrivateKey.value,
       decryptionPassphrase.value || undefined

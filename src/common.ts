@@ -50,6 +50,14 @@ export type Secret = {
   metadata: SecretMetadata
 }
 
+export interface CryptoServiceAlgorithmInterface {
+  generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair>
+  encrypt(data: string, publicKey: MaybeSerializedKey): Promise<Secret>
+  decrypt(secret: Secret | string, privateKey: MaybeSerializedKey, passphrase?: string): Promise<string>
+  importPrivateKey(wrappedData: MaybeSerializedKey, passphrase: string): Promise<CryptoKey>
+  importPublicKey(wrappedData: MaybeSerializedKey): Promise<CryptoKey>
+}
+
 export type MaybeSerializedKey = string | WrappedKeyData | CryptoKey
 
 export const generateKeyFromPassphrase = async (passphrase: string): Promise<CryptoKey> => {

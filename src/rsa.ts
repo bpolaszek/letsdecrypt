@@ -1,4 +1,5 @@
 import {
+  CryptoServiceAlgorithmInterface,
   generateKeyFromPassphrase,
   hashKey,
   type KeyPairOptions,
@@ -11,19 +12,18 @@ import {
   wrapPublicKey,
 } from './common'
 import {Buffer} from 'buffer'
-import {CryptoServiceAlgorithmInterface, HASHING_ALGORITHM} from './index.ts'
 
 const RSA_ALGORITHM = 'RSA-OAEP'
 const SYMMETRIC_ALGORITHM = 'AES-GCM'
 const DEFAULT_RSA_LENGTH = 2048
-const HASH = 'SHA-256'
+const HASHING_ALGORITHM = 'SHA-256'
 
 const getKeyGenParams = (options?: KeyPairOptions): RsaHashedKeyGenParams => {
   return {
     name: RSA_ALGORITHM,
     modulusLength: options?.rsaModulusLength || DEFAULT_RSA_LENGTH,
     publicExponent: new Uint8Array([1, 0, 1]),
-    hash: HASH,
+    hash: HASHING_ALGORITHM,
   }
 }
 
@@ -74,7 +74,7 @@ export const Rsa: CryptoServiceAlgorithmInterface = {
       keyData,
       {
         name: RSA_ALGORITHM,
-        hash: HASH,
+        hash: HASHING_ALGORITHM,
       },
       true,
       ['decrypt']
