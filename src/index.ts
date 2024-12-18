@@ -7,12 +7,14 @@ import type {
   SerializedKeyPair,
   WrappedCryptoKeyPair,
   WrappedKeyData,
+  Secret,
 } from './common'
-import {Secret} from './common'
 import match from 'match-operator'
 import {Buffer} from 'buffer'
 
 export * from './common'
+
+export const HASHING_ALGORITHM = 'SHA-256'
 
 type AlgorithmOptions = {
   name: string
@@ -20,24 +22,36 @@ type AlgorithmOptions = {
   namedCurve?: string
 }
 
-export class CryptoService {
-  protected static readonly HASH = 'SHA-256'
+export interface CryptoServiceAlgorithmInterface {
+  getPublicKeyUsages(): KeyUsage[]
+  getPrivateKeyUsages(): KeyUsage[]
+  getKeyPairUsages(): KeyUsage[]
+  getAlgorithm(): AlgorithmId
+  generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair>
+  encrypt(data: string, publicKey: CryptoKey): Promise<Secret>
+  decrypt(
+    secret: Secret | string,
+    privateKey: CryptoKey | string | WrappedKeyData,
+    passphrase?: string
+  ): Promise<string>
+  unwrapKey(wrappedData: WrappedKeyData, passphrase: string): Promise<CryptoKey>
+  importPrivateKey(serialized: string, passphrase?: string): Promise<CryptoKey>
+}
 
-  static async generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> {
+export const CryptoService = {
+  async generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> {
     return match(options?.algorithm ?? 'RSA', [
       ['RSA', () => Rsa.generateKeyPair(options)],
       ['ECC', () => Ecc.generateKeyPair(options)],
     ]) as unknown as Promise<WrappedCryptoKeyPair>
-  }
-
-  static async exportKeyPair(keyPair: CryptoKeyPair | WrappedCryptoKeyPair): Promise<SerializedKeyPair> {
+  },
+  async exportKeyPair(keyPair: CryptoKeyPair | WrappedCryptoKeyPair): Promise<SerializedKeyPair> {
     return {
       publicKey: JSON.stringify(keyPair.publicKey),
       privateKey: JSON.stringify(keyPair.privateKey),
     }
-  }
-
-  protected static async importPublicKey(serialized: string): Promise<CryptoKey> {
+  },
+  async importPublicKey(serialized: string): Promise<CryptoKey> {
     const unserialized = JSON.parse(serialized)
     const {wrappedKey, algorithm, format, namedCurve} = unserialized
     const usages = match(algorithm, [
@@ -45,33 +59,31 @@ export class CryptoService {
       ['ECDH', () => Ecc.getPublicKeyUsages()],
     ]) as unknown as KeyUsage[]
     const algorithmOptions = match<AlgorithmId, AlgorithmOptions>(algorithm, [
-      ['RSA-OAEP', () => ({name: algorithm, hash: this.HASH})],
+      ['RSA-OAEP', () => ({name: algorithm, hash: HASHING_ALGORITHM})],
       ['ECDH', () => ({name: algorithm, namedCurve})],
     ])
     const binaryKey = Buffer.from(wrappedKey, 'base64')
     return await crypto.subtle.importKey(format, binaryKey, algorithmOptions, true, usages)
-  }
-
-  static async encrypt(data: string, publicKey: string | CryptoKey): Promise<Secret> {
+  },
+  async encrypt(data: string, publicKey: string | CryptoKey): Promise<Secret> {
     const key = typeof publicKey === 'string' ? await this.importPublicKey(publicKey) : publicKey
 
     return match(key.algorithm.name, [
       ['RSA-OAEP', async () => Rsa.encrypt(data, key)],
       ['ECDH', async () => Ecc.encrypt(data, key)],
     ]) as unknown as Promise<Secret>
-  }
-
-  static async decrypt(
+  },
+  async decrypt(
     secret: Secret | string,
     privateKey: CryptoKey | string | WrappedKeyData,
     passphrase?: string
   ): Promise<string> {
     if ('string' === typeof secret) {
-      secret = Secret.deserialize(secret)
+      secret = JSON.parse(secret)
     }
-    return match(secret.getMetadata().algorithm, [
+    return match((secret as Secret).metadata.algorithm, [
       ['RSA-OAEP', async () => Rsa.decrypt(secret, privateKey, passphrase)],
       ['ECDH', async () => Ecc.decrypt(secret, privateKey, passphrase)],
     ]) as unknown as Promise<string>
-  }
+  },
 }

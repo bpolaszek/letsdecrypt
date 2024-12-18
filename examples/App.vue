@@ -195,7 +195,7 @@ async function encryptMessage() {
     }
 
     encryptedSecret.value = await CryptoService.encrypt(messageToEncrypt.value, encryptionPublicKey.value)
-    serializedSecret.value = encryptedSecret.value.serialize()
+    serializedSecret.value = JSON.stringify(encryptedSecret.value)
   } catch (error) {
     console.error('Error encrypting message:', error)
     alert('Failed to encrypt message')

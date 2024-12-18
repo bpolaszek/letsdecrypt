@@ -1,5 +1,5 @@
-import {describe, it, expect} from 'vitest'
-import {CryptoService, Secret} from '../src'
+import {describe, expect, it} from 'vitest'
+import {CryptoService} from '../src'
 import {payload as sensitiveData} from './data'
 
 describe.each([
@@ -31,8 +31,7 @@ describe.each([
 
   it('encrypts a secret', async function () {
     encryptedSecret = await CryptoService.encrypt(sensitiveData, serializedKeys.publicKey)
-    expect(encryptedSecret).toBeInstanceOf(Secret)
-    const metadata = encryptedSecret.getMetadata()
+    const metadata = encryptedSecret.metadata
     expect(metadata.algorithm).toBe('ECDH')
     expect(metadata.namedCurve).toBe(eccCurve ?? 'P-256')
   })

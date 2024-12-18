@@ -1,49 +1,66 @@
 import {
   type AlgorithmId,
-  AbstractCryptoService,
   Secret,
   type SecretMetadata,
   type WrappedKeyData,
   type KeyPairOptions,
+  generateKeyFromPassphrase,
+  hashKey,
+  WrappedCryptoKeyPair,
+  wrapPrivateKey,
+  wrapPublicKey,
 } from './common'
 import {Buffer} from 'buffer'
+import {CryptoServiceAlgorithmInterface} from './index.ts'
 
-export class Rsa extends AbstractCryptoService {
-  static override getPublicKeyUsages(): KeyUsage[] {
+const RSA_ALGORITHM = 'RSA-OAEP'
+const SYMMETRIC_ALGORITHM = 'AES-GCM'
+const DEFAULT_RSA_LENGTH = 2048
+const HASH = 'SHA-256'
+
+const getKeyGenParams = (options?: KeyPairOptions): RsaHashedKeyGenParams => {
+  return {
+    name: RSA_ALGORITHM,
+    modulusLength: options?.rsaModulusLength || DEFAULT_RSA_LENGTH,
+    publicExponent: new Uint8Array([1, 0, 1]),
+    hash: HASH,
+  }
+}
+
+export const Rsa: CryptoServiceAlgorithmInterface = {
+  getPublicKeyUsages(): KeyUsage[] {
     return ['encrypt']
-  }
-
-  static override getPrivateKeyUsages(): KeyUsage[] {
+  },
+  getPrivateKeyUsages(): KeyUsage[] {
     return ['decrypt']
-  }
-
-  static override getKeyPairUsages(): KeyUsage[] {
+  },
+  getKeyPairUsages(): KeyUsage[] {
     return ['encrypt', 'decrypt']
-  }
-
-  static override getAlgorithm(): AlgorithmId {
+  },
+  getAlgorithm(): AlgorithmId {
     return 'RSA-OAEP'
-  }
-
-  protected static override getKeyGenParams(options?: KeyPairOptions): RsaHashedKeyGenParams | EcKeyGenParams {
+  },
+  async generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> {
+    const params = getKeyGenParams(options)
+    const keyPair = await crypto.subtle.generateKey(params, true, this.getKeyPairUsages())
+    // If passphrase provided, wrap the private key
+    const wrappedPrivateKey = await wrapPrivateKey(keyPair.privateKey, options?.passphrase ?? '', params.name)
+    const wrappedPublicKey = await wrapPublicKey(keyPair.publicKey, params.name)
     return {
-      name: this.RSA_ALGORITHM,
-      modulusLength: options?.rsaModulusLength || this.DEFAULT_RSA_LENGTH,
-      publicExponent: new Uint8Array([1, 0, 1]),
-      hash: this.HASH,
+      publicKey: wrappedPublicKey,
+      privateKey: wrappedPrivateKey,
     }
-  }
-
-  protected static override async unwrapKey(wrappedData: WrappedKeyData, passphrase: string): Promise<CryptoKey> {
+  },
+  async unwrapKey(wrappedData: WrappedKeyData, passphrase: string): Promise<CryptoKey> {
     // Generate the unwrapping key from the passphrase
-    const unwrappingKey = await this.generateKeyFromPassphrase(passphrase)
+    const unwrappingKey = await generateKeyFromPassphrase(passphrase)
 
     // Decode the wrapped key and IV from base64
     const wrappedKey = Buffer.from(wrappedData.wrappedKey, 'base64')
     const iv = Buffer.from(wrappedData.iv, 'base64')
 
     // Decrypt the wrapped key
-    const unwrappedData = await crypto.subtle.decrypt({name: this.SYMMETRIC_ALGORITHM, iv}, unwrappingKey, wrappedKey)
+    const unwrappedData = await crypto.subtle.decrypt({name: SYMMETRIC_ALGORITHM, iv}, unwrappingKey, wrappedKey)
 
     // Handle the unwrapped data based on the original format
     const format = (wrappedData as any).format || 'pkcs8'
@@ -53,20 +70,23 @@ export class Rsa extends AbstractCryptoService {
       format,
       keyData,
       {
-        name: this.RSA_ALGORITHM,
-        hash: this.HASH,
+        name: RSA_ALGORITHM,
+        hash: HASH,
       },
       true,
       this.getPrivateKeyUsages()
     )
-  }
-
-  static async encrypt(data: string, publicKey: CryptoKey): Promise<Secret> {
+  },
+  async importPrivateKey(serialized: string, passphrase?: string): Promise<CryptoKey> {
+    const wrappedKeyData: WrappedKeyData = JSON.parse(serialized)
+    return this.unwrapKey(wrappedKeyData, passphrase ?? '')
+  },
+  async encrypt(data: string, publicKey: CryptoKey): Promise<Secret> {
     // RSA encryption path (unchanged)
     // Generate a symmetric key for the actual data encryption
     const symmetricKey = await crypto.subtle.generateKey(
       {
-        name: this.SYMMETRIC_ALGORITHM,
+        name: SYMMETRIC_ALGORITHM,
         length: 256,
       },
       true,
@@ -80,7 +100,7 @@ export class Rsa extends AbstractCryptoService {
     const encodedData = new TextEncoder().encode(data)
     const encryptedData = await crypto.subtle.encrypt(
       {
-        name: this.SYMMETRIC_ALGORITHM,
+        name: SYMMETRIC_ALGORITHM,
         iv,
       },
       symmetricKey,
@@ -91,7 +111,7 @@ export class Rsa extends AbstractCryptoService {
     const exportedSymKey = await crypto.subtle.exportKey('raw', symmetricKey)
     const encryptedSymKey = await crypto.subtle.encrypt(
       {
-        name: this.RSA_ALGORITHM,
+        name: RSA_ALGORITHM,
       },
       publicKey,
       exportedSymKey
@@ -99,21 +119,23 @@ export class Rsa extends AbstractCryptoService {
 
     // Create metadata
     const metadata: SecretMetadata = {
-      algorithm: this.RSA_ALGORITHM,
-      keyHash: await this.hashKey(publicKey),
+      algorithm: RSA_ALGORITHM,
+      keyHash: await hashKey(publicKey),
       iv: Buffer.from(iv).toString('base64'),
       symmetricKey: Buffer.from(encryptedSymKey).toString('base64'),
     }
 
-    return new Secret(Buffer.from(encryptedData).toString('base64'), metadata)
-  }
-
-  static async decrypt(
+    return {
+      encryptedData: Buffer.from(encryptedData).toString('base64'),
+      metadata,
+    }
+  },
+  async decrypt(
     secret: Secret | string,
     privateKey: CryptoKey | string | WrappedKeyData,
     passphrase?: string
   ): Promise<string> {
-    const secretObj = typeof secret === 'string' ? Secret.deserialize(secret) : secret
+    const secretObj = typeof secret === 'string' ? JSON.parse(secret) : secret
     let key: CryptoKey
 
     if (typeof privateKey === 'string') {
@@ -124,12 +146,12 @@ export class Rsa extends AbstractCryptoService {
       key = privateKey
     }
 
-    const metadata = secretObj.getMetadata()
+    const metadata = secretObj.metadata
     // Decrypt the symmetric key
     const encryptedSymKey = Buffer.from(metadata.symmetricKey, 'base64')
     const symmetricKeyBuffer = await crypto.subtle.decrypt(
       {
-        name: this.RSA_ALGORITHM,
+        name: RSA_ALGORITHM,
       },
       key,
       encryptedSymKey
@@ -140,7 +162,7 @@ export class Rsa extends AbstractCryptoService {
       'raw',
       symmetricKeyBuffer,
       {
-        name: this.SYMMETRIC_ALGORITHM,
+        name: SYMMETRIC_ALGORITHM,
         length: 256,
       },
       false,
@@ -148,12 +170,12 @@ export class Rsa extends AbstractCryptoService {
     )
 
     // Decrypt the data
-    const encryptedData = Buffer.from(secretObj.getEncryptedData(), 'base64')
+    const encryptedData = Buffer.from(secretObj.encryptedData, 'base64')
     const iv = Buffer.from(metadata.iv, 'base64')
 
     const decryptedData = await crypto.subtle.decrypt(
       {
-        name: this.SYMMETRIC_ALGORITHM,
+        name: SYMMETRIC_ALGORITHM,
         iv,
       },
       symmetricKey,
@@ -161,5 +183,5 @@ export class Rsa extends AbstractCryptoService {
     )
 
     return new TextDecoder().decode(decryptedData)
-  }
+  },
 }

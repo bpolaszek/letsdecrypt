@@ -1,61 +1,83 @@
 import {
   type AlgorithmId,
-  AbstractCryptoService,
+  generateKeyFromPassphrase,
+  hashKey,
+  type KeyPairOptions,
   Secret,
   type SecretMetadata,
+  WrappedCryptoKeyPair,
   type WrappedKeyData,
-  type KeyPairOptions,
+  wrapPrivateKey,
+  wrapPublicKey,
 } from './common'
 import {Buffer} from 'buffer'
+import {CryptoServiceAlgorithmInterface} from './index.ts'
 
-export class Ecc extends AbstractCryptoService {
-  private static readonly DEFAULT_ECC_CURVE = 'P-256'
+const ECC_ALGORITHM = 'ECDH'
+const DEFAULT_ECC_CURVE = 'P-256'
+const SYMMETRIC_ALGORITHM = 'AES-GCM'
 
-  static override getPublicKeyUsages(): KeyUsage[] {
+const getKeyGenParams = (options?: KeyPairOptions): EcKeyGenParams & {namedCurve?: string} => {
+  return {
+    name: ECC_ALGORITHM,
+    namedCurve: options?.eccCurve || DEFAULT_ECC_CURVE,
+  }
+}
+
+export const Ecc: CryptoServiceAlgorithmInterface = {
+  getPublicKeyUsages(): KeyUsage[] {
     return []
-  }
-
-  static override getPrivateKeyUsages(): KeyUsage[] {
+  },
+  getPrivateKeyUsages(): KeyUsage[] {
     return ['deriveKey', 'deriveBits']
-  }
-
-  static override getKeyPairUsages(): KeyUsage[] {
+  },
+  getKeyPairUsages(): KeyUsage[] {
     return ['deriveKey', 'deriveBits']
-  }
-
-  static override getAlgorithm(): AlgorithmId {
+  },
+  getAlgorithm(): AlgorithmId {
     return 'ECDH'
-  }
-
-  protected static override getKeyGenParams(options?: KeyPairOptions): RsaHashedKeyGenParams | EcKeyGenParams {
+  },
+  async generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> {
+    const params = getKeyGenParams(options)
+    const keyPair = await crypto.subtle.generateKey(params, true, this.getKeyPairUsages())
+    // If passphrase provided, wrap the private key
+    const wrappedPrivateKey = await wrapPrivateKey(
+      keyPair.privateKey,
+      options?.passphrase ?? '',
+      params.name,
+      params.namedCurve
+    )
+    const wrappedPublicKey = await wrapPublicKey(keyPair.publicKey, params.name, params.namedCurve)
     return {
-      name: this.ECC_ALGORITHM,
-      namedCurve: options?.eccCurve || this.DEFAULT_ECC_CURVE,
+      publicKey: wrappedPublicKey,
+      privateKey: wrappedPrivateKey,
     }
-  }
-
-  protected static override async unwrapKey(wrappedData: WrappedKeyData, passphrase: string): Promise<CryptoKey> {
+  },
+  async importPrivateKey(serialized: string, passphrase?: string): Promise<CryptoKey> {
+    const wrappedKeyData: WrappedKeyData = JSON.parse(serialized)
+    return this.unwrapKey(wrappedKeyData, passphrase ?? '')
+  },
+  async unwrapKey(wrappedData: WrappedKeyData, passphrase: string): Promise<CryptoKey> {
     // Generate the unwrapping key from the passphrase
-    const unwrappingKey = await this.generateKeyFromPassphrase(passphrase)
+    const unwrappingKey = await generateKeyFromPassphrase(passphrase)
 
     // Decode the wrapped key and IV from base64
     const wrappedKey = Buffer.from(wrappedData.wrappedKey, 'base64')
     const iv = Buffer.from(wrappedData.iv, 'base64')
 
     // Decrypt the wrapped key
-    const unwrappedData = await crypto.subtle.decrypt({name: this.SYMMETRIC_ALGORITHM, iv}, unwrappingKey, wrappedKey)
+    const unwrappedData = await crypto.subtle.decrypt({name: SYMMETRIC_ALGORITHM, iv}, unwrappingKey, wrappedKey)
 
     // Handle the unwrapped data based on the original format
-    const format = (wrappedData as any).format || (wrappedData.algorithm === this.ECC_ALGORITHM ? 'jwk' : 'pkcs8')
+    const format = (wrappedData as any).format || (wrappedData.algorithm === ECC_ALGORITHM ? 'jwk' : 'pkcs8')
     const keyData = format === 'jwk' ? JSON.parse(new TextDecoder().decode(unwrappedData)) : unwrappedData
 
     // Import the key with the correct algorithm parameters
-    const importParams = {name: this.ECC_ALGORITHM, namedCurve: wrappedData.namedCurve}
+    const importParams = {name: ECC_ALGORITHM, namedCurve: wrappedData.namedCurve}
 
     return crypto.subtle.importKey(format, keyData, importParams, true, this.getPrivateKeyUsages())
-  }
-
-  static async encrypt(data: string, publicKey: CryptoKey): Promise<Secret> {
+  },
+  async encrypt(data: string, publicKey: CryptoKey): Promise<Secret> {
     // For ECC, we need to:
     // 1. Generate an ephemeral key pair
     // 2. Derive a shared secret using ECDH
@@ -63,7 +85,7 @@ export class Ecc extends AbstractCryptoService {
     const keyAlgorithm = publicKey.algorithm as EcKeyImportParams | RsaHashedImportParams
     const ephemeralKeyPair = (await crypto.subtle.generateKey(
       {
-        name: this.ECC_ALGORITHM,
+        name: ECC_ALGORITHM,
         namedCurve: (keyAlgorithm as EcKeyImportParams).namedCurve,
       },
       true,
@@ -73,12 +95,12 @@ export class Ecc extends AbstractCryptoService {
     // Derive the shared secret
     const sharedSecret = await crypto.subtle.deriveKey(
       {
-        name: this.ECC_ALGORITHM,
+        name: ECC_ALGORITHM,
         public: publicKey,
       },
       ephemeralKeyPair.privateKey,
       {
-        name: this.SYMMETRIC_ALGORITHM,
+        name: SYMMETRIC_ALGORITHM,
         length: 256,
       },
       false,
@@ -92,7 +114,7 @@ export class Ecc extends AbstractCryptoService {
     const encodedData = new TextEncoder().encode(data)
     const encryptedData = await crypto.subtle.encrypt(
       {
-        name: this.SYMMETRIC_ALGORITHM,
+        name: SYMMETRIC_ALGORITHM,
         iv,
       },
       sharedSecret,
@@ -104,24 +126,26 @@ export class Ecc extends AbstractCryptoService {
 
     // Create metadata
     const metadata: SecretMetadata = {
-      algorithm: this.ECC_ALGORITHM,
-      keyHash: await this.hashKey(publicKey),
+      algorithm: ECC_ALGORITHM,
+      keyHash: await hashKey(publicKey),
       iv: Buffer.from(iv).toString('base64'),
       symmetricKey: '', // Not needed for ECC
       publicKey: Buffer.from(exportedEphemeralKey).toString('base64'),
       namedCurve: (keyAlgorithm as EcKeyImportParams).namedCurve,
     }
 
-    return new Secret(Buffer.from(encryptedData).toString('base64'), metadata)
-  }
-
-  static async decrypt(
+    return {
+      encryptedData: Buffer.from(encryptedData).toString('base64'),
+      metadata,
+    }
+  },
+  async decrypt(
     secret: Secret | string,
     privateKey: CryptoKey | string | WrappedKeyData,
     passphrase?: string
   ): Promise<string> {
     // Import the ephemeral public key
-    const secretObj = typeof secret === 'string' ? Secret.deserialize(secret) : secret
+    const secretObj = typeof secret === 'string' ? JSON.parse(secret) : secret
     let key: CryptoKey
 
     if (typeof privateKey === 'string') {
@@ -134,10 +158,10 @@ export class Ecc extends AbstractCryptoService {
 
     const ephemeralPublicKey = await crypto.subtle.importKey(
       'spki',
-      Buffer.from(secretObj.getMetadata().publicKey!, 'base64'),
+      Buffer.from(secretObj.metadata.publicKey!, 'base64'),
       {
-        name: this.ECC_ALGORITHM,
-        namedCurve: secretObj.getMetadata().namedCurve ?? this.DEFAULT_ECC_CURVE,
+        name: ECC_ALGORITHM,
+        namedCurve: secretObj.metadata.namedCurve ?? DEFAULT_ECC_CURVE,
       },
       true,
       []
@@ -146,12 +170,12 @@ export class Ecc extends AbstractCryptoService {
     // Derive the same shared secret
     const sharedSecret = await crypto.subtle.deriveKey(
       {
-        name: this.ECC_ALGORITHM,
+        name: ECC_ALGORITHM,
         public: ephemeralPublicKey,
       },
       key,
       {
-        name: this.SYMMETRIC_ALGORITHM,
+        name: SYMMETRIC_ALGORITHM,
         length: 256,
       },
       false,
@@ -159,12 +183,12 @@ export class Ecc extends AbstractCryptoService {
     )
 
     // Decrypt the data
-    const encryptedData = Buffer.from(secretObj.getEncryptedData(), 'base64')
-    const iv = Buffer.from(secretObj.getMetadata().iv!, 'base64')
+    const encryptedData = Buffer.from(secretObj.encryptedData, 'base64')
+    const iv = Buffer.from(secretObj.metadata.iv!, 'base64')
 
     const decryptedData = await crypto.subtle.decrypt(
       {
-        name: this.SYMMETRIC_ALGORITHM,
+        name: SYMMETRIC_ALGORITHM,
         iv,
       },
       sharedSecret,
@@ -172,5 +196,5 @@ export class Ecc extends AbstractCryptoService {
     )
 
     return new TextDecoder().decode(decryptedData)
-  }
+  },
 }
