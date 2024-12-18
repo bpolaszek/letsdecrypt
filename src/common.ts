@@ -33,6 +33,7 @@ export interface WrappedKeyData {
   algorithm: string // The algorithm used for the key
   format: string // The format of the wrapped key
   namedCurve?: string // The curve used for ECC keys
+  protected?: boolean // Whether the key is protected by a passphrase
 }
 
 export interface CryptoKeyPair {
@@ -125,6 +126,7 @@ export const wrapPrivateKey = async (
     algorithm,
     format,
     namedCurve,
+    protected: passphrase.length > 0 ? true : undefined,
   }
 }
 

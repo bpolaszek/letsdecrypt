@@ -32,7 +32,8 @@ const k = "ECDH", v = "AES-GCM", P = "SHA-256", h = async (e) => {
     iv: o.from(i).toString("base64"),
     algorithm: r,
     format: n,
-    namedCurve: a
+    namedCurve: a,
+    protected: t.length > 0 ? !0 : void 0
   };
 }, E = async (e) => {
   const t = await crypto.subtle.exportKey("spki", e), r = await crypto.subtle.digest(P, t);
