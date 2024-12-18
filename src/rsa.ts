@@ -1,17 +1,17 @@
 import {
-  type AlgorithmId,
-  Secret,
-  type SecretMetadata,
-  type WrappedKeyData,
-  type KeyPairOptions,
   generateKeyFromPassphrase,
   hashKey,
+  type KeyPairOptions,
+  MaybeSerializedKey,
+  Secret,
+  type SecretMetadata,
   WrappedCryptoKeyPair,
+  type WrappedKeyData,
   wrapPrivateKey,
   wrapPublicKey,
 } from './common'
 import {Buffer} from 'buffer'
-import {CryptoServiceAlgorithmInterface} from './index.ts'
+import {CryptoServiceAlgorithmInterface, HASHING_ALGORITHM} from './index.ts'
 
 const RSA_ALGORITHM = 'RSA-OAEP'
 const SYMMETRIC_ALGORITHM = 'AES-GCM'
@@ -28,21 +28,9 @@ const getKeyGenParams = (options?: KeyPairOptions): RsaHashedKeyGenParams => {
 }
 
 export const Rsa: CryptoServiceAlgorithmInterface = {
-  getPublicKeyUsages(): KeyUsage[] {
-    return ['encrypt']
-  },
-  getPrivateKeyUsages(): KeyUsage[] {
-    return ['decrypt']
-  },
-  getKeyPairUsages(): KeyUsage[] {
-    return ['encrypt', 'decrypt']
-  },
-  getAlgorithm(): AlgorithmId {
-    return 'RSA-OAEP'
-  },
   async generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> {
     const params = getKeyGenParams(options)
-    const keyPair = await crypto.subtle.generateKey(params, true, this.getKeyPairUsages())
+    const keyPair = await crypto.subtle.generateKey(params, true, ['encrypt', 'decrypt'])
     // If passphrase provided, wrap the private key
     const wrappedPrivateKey = await wrapPrivateKey(keyPair.privateKey, options?.passphrase ?? '', params.name)
     const wrappedPublicKey = await wrapPublicKey(keyPair.publicKey, params.name)
@@ -51,19 +39,34 @@ export const Rsa: CryptoServiceAlgorithmInterface = {
       privateKey: wrappedPrivateKey,
     }
   },
-  async unwrapKey(wrappedData: WrappedKeyData, passphrase: string): Promise<CryptoKey> {
+  async importPublicKey(wrappedData: MaybeSerializedKey): Promise<CryptoKey> {
+    if (wrappedData instanceof CryptoKey) {
+      return wrappedData
+    }
+    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? JSON.parse(wrappedData) : wrappedData
+    const {wrappedKey, algorithm, format} = wrappedKeyData
+    const algorithmOptions = {name: algorithm, hash: HASHING_ALGORITHM}
+    const binaryKey = Buffer.from(wrappedKey, 'base64')
+    return await crypto.subtle.importKey(format as any, binaryKey, algorithmOptions, true, ['encrypt'])
+  },
+  async importPrivateKey(wrappedData: MaybeSerializedKey, passphrase: string): Promise<CryptoKey> {
+    if (wrappedData instanceof CryptoKey) {
+      return wrappedData
+    }
+    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? JSON.parse(wrappedData) : wrappedData
+
     // Generate the unwrapping key from the passphrase
     const unwrappingKey = await generateKeyFromPassphrase(passphrase)
 
     // Decode the wrapped key and IV from base64
-    const wrappedKey = Buffer.from(wrappedData.wrappedKey, 'base64')
-    const iv = Buffer.from(wrappedData.iv, 'base64')
+    const wrappedKey = Buffer.from(wrappedKeyData.wrappedKey, 'base64')
+    const iv = Buffer.from(wrappedKeyData.iv, 'base64')
 
     // Decrypt the wrapped key
     const unwrappedData = await crypto.subtle.decrypt({name: SYMMETRIC_ALGORITHM, iv}, unwrappingKey, wrappedKey)
 
     // Handle the unwrapped data based on the original format
-    const format = (wrappedData as any).format || 'pkcs8'
+    const format = (wrappedKeyData as any).format || 'pkcs8'
     const keyData = format === 'jwk' ? JSON.parse(new TextDecoder().decode(unwrappedData)) : unwrappedData
 
     return crypto.subtle.importKey(
@@ -74,14 +77,11 @@ export const Rsa: CryptoServiceAlgorithmInterface = {
         hash: HASH,
       },
       true,
-      this.getPrivateKeyUsages()
+      ['decrypt']
     )
   },
-  async importPrivateKey(serialized: string, passphrase?: string): Promise<CryptoKey> {
-    const wrappedKeyData: WrappedKeyData = JSON.parse(serialized)
-    return this.unwrapKey(wrappedKeyData, passphrase ?? '')
-  },
-  async encrypt(data: string, publicKey: CryptoKey): Promise<Secret> {
+  async encrypt(data: string, publicKey: MaybeSerializedKey): Promise<Secret> {
+    publicKey = await this.importPublicKey(publicKey)
     // RSA encryption path (unchanged)
     // Generate a symmetric key for the actual data encryption
     const symmetricKey = await crypto.subtle.generateKey(
@@ -130,21 +130,9 @@ export const Rsa: CryptoServiceAlgorithmInterface = {
       metadata,
     }
   },
-  async decrypt(
-    secret: Secret | string,
-    privateKey: CryptoKey | string | WrappedKeyData,
-    passphrase?: string
-  ): Promise<string> {
+  async decrypt(secret: Secret | string, privateKey: MaybeSerializedKey, passphrase?: string): Promise<string> {
     const secretObj = typeof secret === 'string' ? JSON.parse(secret) : secret
-    let key: CryptoKey
-
-    if (typeof privateKey === 'string') {
-      key = await this.importPrivateKey(privateKey, passphrase)
-    } else if ('wrappedKey' in privateKey) {
-      key = await this.unwrapKey(privateKey, passphrase ?? '')
-    } else {
-      key = privateKey
-    }
+    privateKey = await this.importPrivateKey(privateKey, passphrase ?? '')
 
     const metadata = secretObj.metadata
     // Decrypt the symmetric key
@@ -153,7 +141,7 @@ export const Rsa: CryptoServiceAlgorithmInterface = {
       {
         name: RSA_ALGORITHM,
       },
-      key,
+      privateKey,
       encryptedSymKey
     )
 

@@ -5,7 +5,6 @@ const SYMMETRIC_ALGORITHM = 'AES-GCM'
 const HASH = 'SHA-256'
 
 export type Algorithm = 'RSA' | 'ECC'
-export type AlgorithmId = 'RSA-OAEP' | 'ECDH'
 
 export interface KeyPairOptions {
   passphrase?: string
@@ -50,6 +49,8 @@ export type Secret = {
   encryptedData: string
   metadata: SecretMetadata
 }
+
+export type MaybeSerializedKey = string | WrappedKeyData | CryptoKey
 
 export const generateKeyFromPassphrase = async (passphrase: string): Promise<CryptoKey> => {
   const encoder = new TextEncoder()

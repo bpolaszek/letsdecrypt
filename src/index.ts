@@ -1,41 +1,26 @@
 import {Rsa} from './rsa'
 import {Ecc} from './ecc'
-import type {
-  AlgorithmId,
+import {
   CryptoKeyPair,
   KeyPairOptions,
+  MaybeSerializedKey,
+  Secret,
   SerializedKeyPair,
   WrappedCryptoKeyPair,
   WrappedKeyData,
-  Secret,
 } from './common'
 import match from 'match-operator'
-import {Buffer} from 'buffer'
 
 export * from './common'
 
 export const HASHING_ALGORITHM = 'SHA-256'
 
-type AlgorithmOptions = {
-  name: string
-  hash?: string
-  namedCurve?: string
-}
-
 export interface CryptoServiceAlgorithmInterface {
-  getPublicKeyUsages(): KeyUsage[]
-  getPrivateKeyUsages(): KeyUsage[]
-  getKeyPairUsages(): KeyUsage[]
-  getAlgorithm(): AlgorithmId
   generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair>
-  encrypt(data: string, publicKey: CryptoKey): Promise<Secret>
-  decrypt(
-    secret: Secret | string,
-    privateKey: CryptoKey | string | WrappedKeyData,
-    passphrase?: string
-  ): Promise<string>
-  unwrapKey(wrappedData: WrappedKeyData, passphrase: string): Promise<CryptoKey>
-  importPrivateKey(serialized: string, passphrase?: string): Promise<CryptoKey>
+  encrypt(data: string, publicKey: MaybeSerializedKey): Promise<Secret>
+  decrypt(secret: Secret | string, privateKey: MaybeSerializedKey, passphrase?: string): Promise<string>
+  importPrivateKey(wrappedData: MaybeSerializedKey, passphrase: string): Promise<CryptoKey>
+  importPublicKey(wrappedData: MaybeSerializedKey): Promise<CryptoKey>
 }
 
 export const CryptoService = {
@@ -51,33 +36,29 @@ export const CryptoService = {
       privateKey: JSON.stringify(keyPair.privateKey),
     }
   },
-  async importPublicKey(serialized: string): Promise<CryptoKey> {
-    const unserialized = JSON.parse(serialized)
-    const {wrappedKey, algorithm, format, namedCurve} = unserialized
-    const usages = match(algorithm, [
-      ['RSA-OAEP', () => Rsa.getPublicKeyUsages()],
-      ['ECDH', () => Ecc.getPublicKeyUsages()],
-    ]) as unknown as KeyUsage[]
-    const algorithmOptions = match<AlgorithmId, AlgorithmOptions>(algorithm, [
-      ['RSA-OAEP', () => ({name: algorithm, hash: HASHING_ALGORITHM})],
-      ['ECDH', () => ({name: algorithm, namedCurve})],
-    ])
-    const binaryKey = Buffer.from(wrappedKey, 'base64')
-    return await crypto.subtle.importKey(format, binaryKey, algorithmOptions, true, usages)
+  async importPublicKey(publicKey: MaybeSerializedKey): Promise<CryptoKey> {
+    let wrappedKeyData: WrappedKeyData
+    if ('string' === typeof publicKey) {
+      wrappedKeyData = JSON.parse(publicKey)
+    } else if ('object' === typeof publicKey) {
+      wrappedKeyData = publicKey as WrappedKeyData
+    } else {
+      return publicKey as CryptoKey
+    }
+    return match(wrappedKeyData.algorithm, [
+      ['RSA-OAEP', () => Rsa.importPublicKey(wrappedKeyData)],
+      ['ECDH', () => Ecc.importPublicKey(wrappedKeyData)],
+    ]) as unknown as Promise<CryptoKey>
   },
-  async encrypt(data: string, publicKey: string | CryptoKey): Promise<Secret> {
-    const key = typeof publicKey === 'string' ? await this.importPublicKey(publicKey) : publicKey
+  async encrypt(data: string, publicKey: MaybeSerializedKey): Promise<Secret> {
+    const key = await this.importPublicKey(publicKey)
 
     return match(key.algorithm.name, [
       ['RSA-OAEP', async () => Rsa.encrypt(data, key)],
       ['ECDH', async () => Ecc.encrypt(data, key)],
     ]) as unknown as Promise<Secret>
   },
-  async decrypt(
-    secret: Secret | string,
-    privateKey: CryptoKey | string | WrappedKeyData,
-    passphrase?: string
-  ): Promise<string> {
+  async decrypt(secret: Secret | string, privateKey: MaybeSerializedKey, passphrase?: string): Promise<string> {
     if ('string' === typeof secret) {
       secret = JSON.parse(secret)
     }

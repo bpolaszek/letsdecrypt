@@ -1,8 +1,8 @@
 import {
-  type AlgorithmId,
   generateKeyFromPassphrase,
   hashKey,
   type KeyPairOptions,
+  MaybeSerializedKey,
   Secret,
   type SecretMetadata,
   WrappedCryptoKeyPair,
@@ -25,21 +25,9 @@ const getKeyGenParams = (options?: KeyPairOptions): EcKeyGenParams & {namedCurve
 }
 
 export const Ecc: CryptoServiceAlgorithmInterface = {
-  getPublicKeyUsages(): KeyUsage[] {
-    return []
-  },
-  getPrivateKeyUsages(): KeyUsage[] {
-    return ['deriveKey', 'deriveBits']
-  },
-  getKeyPairUsages(): KeyUsage[] {
-    return ['deriveKey', 'deriveBits']
-  },
-  getAlgorithm(): AlgorithmId {
-    return 'ECDH'
-  },
   async generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> {
     const params = getKeyGenParams(options)
-    const keyPair = await crypto.subtle.generateKey(params, true, this.getKeyPairUsages())
+    const keyPair = await crypto.subtle.generateKey(params, true, ['deriveKey', 'deriveBits'])
     // If passphrase provided, wrap the private key
     const wrappedPrivateKey = await wrapPrivateKey(
       keyPair.privateKey,
@@ -53,31 +41,43 @@ export const Ecc: CryptoServiceAlgorithmInterface = {
       privateKey: wrappedPrivateKey,
     }
   },
-  async importPrivateKey(serialized: string, passphrase?: string): Promise<CryptoKey> {
-    const wrappedKeyData: WrappedKeyData = JSON.parse(serialized)
-    return this.unwrapKey(wrappedKeyData, passphrase ?? '')
-  },
-  async unwrapKey(wrappedData: WrappedKeyData, passphrase: string): Promise<CryptoKey> {
+  async importPrivateKey(wrappedData: MaybeSerializedKey, passphrase: string): Promise<CryptoKey> {
+    if (wrappedData instanceof CryptoKey) {
+      return wrappedData
+    }
+    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? JSON.parse(wrappedData) : wrappedData
+
     // Generate the unwrapping key from the passphrase
     const unwrappingKey = await generateKeyFromPassphrase(passphrase)
 
     // Decode the wrapped key and IV from base64
-    const wrappedKey = Buffer.from(wrappedData.wrappedKey, 'base64')
-    const iv = Buffer.from(wrappedData.iv, 'base64')
+    const wrappedKey = Buffer.from(wrappedKeyData.wrappedKey, 'base64')
+    const iv = Buffer.from(wrappedKeyData.iv, 'base64')
 
     // Decrypt the wrapped key
     const unwrappedData = await crypto.subtle.decrypt({name: SYMMETRIC_ALGORITHM, iv}, unwrappingKey, wrappedKey)
 
     // Handle the unwrapped data based on the original format
-    const format = (wrappedData as any).format || (wrappedData.algorithm === ECC_ALGORITHM ? 'jwk' : 'pkcs8')
+    const format = (wrappedKeyData as any).format || (wrappedKeyData.algorithm === ECC_ALGORITHM ? 'jwk' : 'pkcs8')
     const keyData = format === 'jwk' ? JSON.parse(new TextDecoder().decode(unwrappedData)) : unwrappedData
 
     // Import the key with the correct algorithm parameters
-    const importParams = {name: ECC_ALGORITHM, namedCurve: wrappedData.namedCurve}
+    const importParams = {name: ECC_ALGORITHM, namedCurve: wrappedKeyData.namedCurve}
 
-    return crypto.subtle.importKey(format, keyData, importParams, true, this.getPrivateKeyUsages())
+    return crypto.subtle.importKey(format, keyData, importParams, true, ['deriveKey', 'deriveBits'])
   },
-  async encrypt(data: string, publicKey: CryptoKey): Promise<Secret> {
+  async importPublicKey(wrappedData: MaybeSerializedKey): Promise<CryptoKey> {
+    if (wrappedData instanceof CryptoKey) {
+      return wrappedData
+    }
+    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? JSON.parse(wrappedData) : wrappedData
+    const {wrappedKey, algorithm, format, namedCurve} = wrappedKeyData
+    const algorithmOptions = {name: algorithm, namedCurve}
+    const binaryKey = Buffer.from(wrappedKey, 'base64')
+    return await crypto.subtle.importKey(format as any, binaryKey, algorithmOptions, true, [])
+  },
+  async encrypt(data: string, publicKey: MaybeSerializedKey): Promise<Secret> {
+    publicKey = await this.importPublicKey(publicKey)
     // For ECC, we need to:
     // 1. Generate an ephemeral key pair
     // 2. Derive a shared secret using ECDH
@@ -139,22 +139,10 @@ export const Ecc: CryptoServiceAlgorithmInterface = {
       metadata,
     }
   },
-  async decrypt(
-    secret: Secret | string,
-    privateKey: CryptoKey | string | WrappedKeyData,
-    passphrase?: string
-  ): Promise<string> {
+  async decrypt(secret: Secret | string, privateKey: MaybeSerializedKey, passphrase?: string): Promise<string> {
     // Import the ephemeral public key
     const secretObj = typeof secret === 'string' ? JSON.parse(secret) : secret
-    let key: CryptoKey
-
-    if (typeof privateKey === 'string') {
-      key = await this.importPrivateKey(privateKey, passphrase)
-    } else if ('wrappedKey' in privateKey) {
-      key = await this.unwrapKey(privateKey, passphrase ?? '')
-    } else {
-      key = privateKey
-    }
+    privateKey = await this.importPrivateKey(privateKey, passphrase ?? '')
 
     const ephemeralPublicKey = await crypto.subtle.importKey(
       'spki',
@@ -173,7 +161,7 @@ export const Ecc: CryptoServiceAlgorithmInterface = {
         name: ECC_ALGORITHM,
         public: ephemeralPublicKey,
       },
-      key,
+      privateKey,
       {
         name: SYMMETRIC_ALGORITHM,
         length: 256,
