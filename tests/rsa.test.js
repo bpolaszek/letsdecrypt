@@ -1,5 +1,5 @@
-import {describe, it, expect} from "vitest"
-import {CryptoService, Secret} from "../src"
+import {describe, it, expect} from 'vitest'
+import {CryptoService, Secret} from '../src'
 import {payload as sensitiveData} from './data'
 
 describe.each([
@@ -10,7 +10,6 @@ describe.each([
   {sensitiveData, modulusLength: 4096},
   {sensitiveData, modulusLength: 4096, passphrase: 'May the 4th be with you'},
 ])('RSA keys with passphrase $passphrase', function ({sensitiveData, modulusLength, passphrase}) {
-
   let keyPair, serializedKeys, encryptedSecret
   it('generates a key pair', async function () {
     keyPair = await CryptoService.generateKeyPair({

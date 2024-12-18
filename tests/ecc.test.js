@@ -1,5 +1,5 @@
-import {describe, it, expect} from "vitest"
-import {CryptoService, Secret} from "../src"
+import {describe, it, expect} from 'vitest'
+import {CryptoService, Secret} from '../src'
 import {payload as sensitiveData} from './data'
 
 describe.each([
@@ -10,7 +10,6 @@ describe.each([
   {sensitiveData, eccCurve: 'P-521'},
   {sensitiveData, eccCurve: 'P-521', passphrase: 'May the 4th be with you'},
 ])('ECC keys with passphrase $passphrase', function ({sensitiveData, eccCurve, passphrase}) {
-
   let keyPair, serializedKeys, encryptedSecret
   it('generates a key pair', async function () {
     keyPair = await CryptoService.generateKeyPair({

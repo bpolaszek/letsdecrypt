@@ -1,5 +1,6 @@
 {
   "name": "letsdecrypt",
+  "license": "MIT",
   "files": [
     "dist"
   ],
@@ -14,17 +15,21 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest",
+    "lint": "prettier --check \"(src|tests|examples)/**\" --ignore-unknown",
+    "format": "prettier -w \"(src|tests|examples)/**\" --ignore-unknown"
   },
   "dependencies": {
-    "@vueuse/core": "^12.0.0",
     "match-operator": "^0.3.0"
   },
   "devDependencies": {
-    "@nuxtjs/tailwindcss": "^6.11.4",
+    "@types/node": "^20.4.2",
     "@vitejs/plugin-vue": "^5.2.1",
     "buffer": "^6.0.3",
     "path": "^0.12.7",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.2",
     "vite": "^6.0.3",
     "vitest": "^2.1.8",
     "vue": "^3.5.13"

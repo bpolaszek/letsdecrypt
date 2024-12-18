@@ -1,5 +1,5 @@
-import { Rsa } from "./rsa"
-import { Ecc } from "./ecc"
+import {Rsa} from './rsa'
+import {Ecc} from './ecc'
 import type {
   AlgorithmId,
   CryptoKeyPair,
@@ -7,15 +7,15 @@ import type {
   SerializedKeyPair,
   WrappedCryptoKeyPair,
   WrappedKeyData,
-} from "./common"
-import { Secret } from "./common"
-import match from "match-operator"
-import { Buffer } from "buffer"
+} from './common'
+import {Secret} from './common'
+import match from 'match-operator'
+import {Buffer} from 'buffer'
 
 export * from './common'
 
 type AlgorithmOptions = {
-  name: string;
+  name: string
   hash?: string
   namedCurve?: string
 }
@@ -29,7 +29,6 @@ export class CryptoService {
       ['ECC', () => Ecc.generateKeyPair(options)],
     ]) as unknown as Promise<WrappedCryptoKeyPair>
   }
-
 
   static async exportKeyPair(keyPair: CryptoKeyPair | WrappedCryptoKeyPair): Promise<SerializedKeyPair> {
     return {
@@ -50,22 +49,11 @@ export class CryptoService {
       ['ECDH', () => ({name: algorithm, namedCurve})],
     ])
     const binaryKey = Buffer.from(wrappedKey, 'base64')
-    return await crypto.subtle.importKey(
-      format,
-      binaryKey,
-      algorithmOptions,
-      true,
-      usages,
-    )
+    return await crypto.subtle.importKey(format, binaryKey, algorithmOptions, true, usages)
   }
 
-  static async encrypt(
-    data: string,
-    publicKey: string | CryptoKey,
-  ): Promise<Secret> {
-    const key = typeof publicKey === 'string'
-      ? await this.importPublicKey(publicKey)
-      : publicKey
+  static async encrypt(data: string, publicKey: string | CryptoKey): Promise<Secret> {
+    const key = typeof publicKey === 'string' ? await this.importPublicKey(publicKey) : publicKey
 
     return match(key.algorithm.name, [
       ['RSA-OAEP', async () => Rsa.encrypt(data, key)],
@@ -76,7 +64,7 @@ export class CryptoService {
   static async decrypt(
     secret: Secret | string,
     privateKey: CryptoKey | string | WrappedKeyData,
-    passphrase?: string,
+    passphrase?: string
   ): Promise<string> {
     if ('string' === typeof secret) {
       secret = Secret.deserialize(secret)
