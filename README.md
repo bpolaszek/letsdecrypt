@@ -10,6 +10,10 @@ A TypeScript library for encryption and key management, compatible with both Nod
 - 🔄 Key pair generation and management
 - 📦 Serializable keys and encrypted data
 - 🛡️ Built on top of the Web Crypto API
+
+## Playground
+
+You can test the library in your browser using the [Let's Decrypt Playground](https://letsdecrypt.pages.dev/).
   
 ## Prerequisites
 
