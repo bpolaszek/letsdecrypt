@@ -52,7 +52,7 @@ export const Ecc: CryptoServiceAlgorithmInterface = {
 
     // Decode the wrapped key and IV from base64
     const wrappedKey = Buffer.from(wrappedKeyData.wrappedKey, 'base64')
-    const iv = Buffer.from(wrappedKeyData.iv, 'base64')
+    const iv = Buffer.from(wrappedKeyData.iv!, 'base64')
 
     // Decrypt the wrapped key
     const unwrappedData = await crypto.subtle.decrypt({name: SYMMETRIC_ALGORITHM, iv}, unwrappingKey, wrappedKey)

@@ -1,4 +1,4 @@
-export type Algorithm = 'RSA' | 'ECC';
+export type Algorithm = 'RSA' | 'ECC' | 'AES';
 export interface KeyPairOptions {
     passphrase?: string;
     algorithm?: Algorithm;
@@ -12,16 +12,16 @@ export interface SerializedKeyPair {
 export interface SecretMetadata {
     algorithm: string;
     keyHash: string;
-    iv: string;
-    symmetricKey: string;
+    symmetricKey?: string;
+    iv?: string;
     publicKey?: string;
     namedCurve?: string;
 }
 export interface WrappedKeyData {
     wrappedKey: string;
-    iv: string;
     algorithm: string;
     format: string;
+    iv?: string;
     namedCurve?: string;
     protected?: boolean;
 }
@@ -48,4 +48,4 @@ export type MaybeSerializedKey = string | WrappedKeyData | CryptoKey;
 export declare const generateKeyFromPassphrase: (passphrase: string) => Promise<CryptoKey>;
 export declare const wrapPublicKey: (key: CryptoKey, algorithm: string, namedCurve?: string) => Promise<WrappedKeyData>;
 export declare const wrapPrivateKey: (key: CryptoKey, passphrase: string, algorithm: string, namedCurve?: string) => Promise<WrappedKeyData>;
-export declare const hashKey: (key: CryptoKey) => Promise<string>;
+export declare const hashKey: (key: CryptoKey, format?: string) => Promise<string>;

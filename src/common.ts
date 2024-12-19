@@ -3,7 +3,7 @@ import {Buffer} from 'buffer'
 const SYMMETRIC_ALGORITHM = 'AES-GCM'
 const HASH = 'SHA-256'
 
-export type Algorithm = 'RSA' | 'ECC'
+export type Algorithm = 'RSA' | 'ECC' | 'AES'
 
 export interface KeyPairOptions {
   passphrase?: string
@@ -20,17 +20,17 @@ export interface SerializedKeyPair {
 export interface SecretMetadata {
   algorithm: string
   keyHash: string
-  iv: string
-  symmetricKey: string
+  symmetricKey?: string
+  iv?: string
   publicKey?: string // For ECC, we need to store the ephemeral public key
   namedCurve?: string // The curve used for ECC keys
 }
 
 export interface WrappedKeyData {
   wrappedKey: string // base64 encoded
-  iv: string // base64 encoded
   algorithm: string // The algorithm used for the key
   format: string // The format of the wrapped key
+  iv?: string // base64 encoded
   namedCurve?: string // The curve used for ECC keys
   protected?: boolean // Whether the key is protected by a passphrase
 }
@@ -128,8 +128,8 @@ export const wrapPrivateKey = async (
   }
 }
 
-export const hashKey = async (key: CryptoKey): Promise<string> => {
-  const exported = await crypto.subtle.exportKey('spki', key)
-  const hashBuffer = await crypto.subtle.digest(HASH, exported)
+export const hashKey = async (key: CryptoKey, format: string = 'spki'): Promise<string> => {
+  const exported = await crypto.subtle.exportKey(format as any, key)
+  const hashBuffer = await crypto.subtle.digest(HASH, exported as any)
   return Buffer.from(hashBuffer).toString('hex')
 }
