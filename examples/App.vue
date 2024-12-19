@@ -11,6 +11,7 @@
           <select v-model="algorithm" class="border p-2 rounded w-full">
             <option value="RSA">RSA</option>
             <option value="ECC">ECC (Elliptic Curve)</option>
+            <option value="AES">AES (Symmetric encryption)</option>
           </select>
         </div>
 
@@ -145,11 +146,11 @@
 
 <script setup lang="ts">
 import {ref} from 'vue'
-import { Secret, SerializedKeyPair } from "../src/common"
-import { decrypt, encrypt, exportKeyPair, generateKeyPair as doGenerateKeyPair } from "../src"
+import {Secret, SerializedKeyPair} from '../src/common'
+import {decrypt, encrypt, exportKeyPair, generateKeyPair as doGenerateKeyPair} from '../src'
 
 // Key Generation
-const algorithm = ref<'RSA' | 'ECC'>('RSA')
+const algorithm = ref<'RSA' | 'ECC' | 'AES'>('RSA')
 const rsaModulusLength = ref<number>(2048)
 const eccCurve = ref<'P-256' | 'P-384' | 'P-521'>('P-256')
 const passphrase = ref('')
