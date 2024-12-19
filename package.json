@@ -15,7 +15,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
+    "build:preview": "vite build -c vite.config.preview.js --outDir .output",
+    "preview": "vite preview --outDir .output",
     "test": "vitest",
     "lint": "prettier --check \"(src|tests|examples)/**\" --ignore-unknown",
     "format": "prettier -w \"(src|tests|examples)/**\" --ignore-unknown"
