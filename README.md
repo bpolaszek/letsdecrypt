@@ -172,6 +172,128 @@ interface Secret {
 3. The library uses secure defaults but allows customization for specific needs
 4. All cryptographic operations are performed using the Web Crypto API
 
+## Algorithm Selection Guide
+
+### RSA (Default)
+Best for:
+- Public key infrastructure (PKI)
+- Digital signatures
+- Secure key exchange
+- Scenarios where keys are generated once and used multiple times
+
+Configuration options:
+```typescript
+const keyPair = await generateKeyPair({
+  algorithm: 'RSA',
+  rsaModulusLength: 2048 // or 4096 for higher security
+});
+```
+
+Considerations:
+- Slower than ECC for equivalent security levels
+- Larger key sizes (2048/4096 bits)
+- Well-established and widely supported
+- rsaModulusLength:
+    - 2048 bits: Standard security (default, recommended for most uses)
+    - 4096 bits: Higher security, but slower operations
+
+### ECC (Elliptic Curve Cryptography)
+Best for:
+- Mobile and IoT applications
+- Resource-constrained environments
+- Scenarios requiring high performance
+- Modern applications without legacy compatibility requirements
+
+Configuration options:
+```typescript
+const keyPair = await generateKeyPair({
+  algorithm: 'ECC',
+  eccCurve: 'P-256' // or 'P-384', 'P-521'
+});
+```
+
+Considerations:
+- Faster than RSA with smaller key sizes
+- Excellent security-to-performance ratio
+- Not as widely supported as RSA
+- eccCurve options:
+    - P-256: Standard security (recommended for most uses)
+    - P-384: Higher security
+    - P-521: Maximum security, but slower operations
+
+### AES (Advanced Encryption Standard)
+Best for:
+- Symmetric encryption scenarios
+- High-performance encryption of large data
+- Scenarios where both parties can securely share the key
+- Stream processing of data
+
+Configuration options:
+```typescript
+const keyPair = await generateKeyPair({
+  algorithm: 'AES'
+});
+```
+
+Considerations:
+- Fastest encryption/decryption performance
+- Requires secure key exchange
+- Same key for encryption and decryption
+- Fixed 256-bit key size
+- Best used in combination with RSA or ECC for key exchange
+
+### General Recommendations
+
+1. For general-purpose public key encryption:
+    - Use RSA with 2048-bit keys (default)
+   ```typescript
+   const keyPair = await generateKeyPair(); // Uses RSA by default
+   ```
+
+2. For modern, high-performance applications:
+    - Use ECC with P-256 curve
+   ```typescript
+   const keyPair = await generateKeyPair({
+     algorithm: 'ECC',
+     eccCurve: 'P-256'
+   });
+   ```
+
+3. For maximum security:
+    - Use RSA with 4096-bit keys or ECC with P-521 curve
+   ```typescript
+   // Option 1: RSA 4096
+   const keyPair = await generateKeyPair({
+     algorithm: 'RSA',
+     rsaModulusLength: 4096
+   });
+   
+   // Option 2: ECC P-521
+   const keyPair = await generateKeyPair({
+     algorithm: 'ECC',
+     eccCurve: 'P-521'
+   });
+   ```
+
+4. For key protection:
+    - Always use a strong passphrase for sensitive keys
+   ```typescript
+   const keyPair = await generateKeyPair({
+     algorithm: 'RSA', // or 'ECC'
+     passphrase: 'your-strong-passphrase'
+   });
+   ```
+
+### Performance Considerations
+
+Algorithm | Key Generation | Encryption | Decryption | Key Size | Security Level
+----------|---------------|------------|------------|-----------|---------------
+RSA-2048  | Slow         | Fast       | Moderate   | 2048 bits | Standard
+RSA-4096  | Very Slow    | Fast       | Slow       | 4096 bits | High
+ECC P-256 | Fast         | Fast       | Fast       | 256 bits  | Standard
+ECC P-521 | Fast         | Moderate   | Moderate   | 521 bits  | Very High
+AES-256   | Very Fast    | Very Fast  | Very Fast  | 256 bits  | High
+
 
 ## License
 
