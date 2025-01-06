@@ -1,5 +1,5 @@
 import { Buffer as c } from "buffer";
-const T = "AES-GCM", R = "SHA-256", b = async (e) => {
+const T = "AES-GCM", R = "SHA-256", S = async (e) => {
   const t = new TextEncoder(), r = await crypto.subtle.importKey("raw", t.encode(e), "PBKDF2", !1, [
     "deriveBits",
     "deriveKey"
@@ -25,8 +25,8 @@ const T = "AES-GCM", R = "SHA-256", b = async (e) => {
   format: "spki",
   algorithm: t,
   namedCurve: r
-}), A = async (e, t, r, a) => {
-  const n = "jwk", o = await crypto.subtle.exportKey(n, e), s = new TextEncoder().encode(JSON.stringify(o)), y = await b(t), i = crypto.getRandomValues(new Uint8Array(12)), p = await crypto.subtle.encrypt({ name: T, iv: i }, y, s);
+}), v = async (e, t, r, a) => {
+  const n = "jwk", o = await crypto.subtle.exportKey(n, e), s = new TextEncoder().encode(JSON.stringify(o)), y = await S(t), i = crypto.getRandomValues(new Uint8Array(12)), p = await crypto.subtle.encrypt({ name: T, iv: i }, y, s);
   return {
     wrappedKey: c.from(p).toString("base64"),
     iv: c.from(i).toString("base64"),
@@ -38,14 +38,14 @@ const T = "AES-GCM", R = "SHA-256", b = async (e) => {
 }, C = async (e, t = "spki") => {
   const r = await crypto.subtle.exportKey(t, e), a = await crypto.subtle.digest(R, r);
   return c.from(a).toString("hex");
-}, l = "RSA-OAEP", d = "AES-GCM", H = 2048, P = "SHA-256", N = (e) => ({
+}, l = "RSA-OAEP", u = "AES-GCM", M = 2048, A = "SHA-256", N = (e) => ({
   name: l,
-  modulusLength: (e == null ? void 0 : e.rsaModulusLength) || H,
+  modulusLength: (e == null ? void 0 : e.rsaModulusLength) || M,
   publicExponent: new Uint8Array([1, 0, 1]),
-  hash: P
-}), g = {
+  hash: A
+}), w = {
   async generateKeyPair(e) {
-    const t = N(e), r = await crypto.subtle.generateKey(t, !0, ["encrypt", "decrypt"]), a = await A(r.privateKey, (e == null ? void 0 : e.passphrase) ?? "", t.name);
+    const t = N(e), r = await crypto.subtle.generateKey(t, !0, ["encrypt", "decrypt"]), a = await v(r.privateKey, (e == null ? void 0 : e.passphrase) ?? "", t.name);
     return {
       publicKey: await k(r.publicKey, t.name),
       privateKey: a
@@ -54,19 +54,19 @@ const T = "AES-GCM", R = "SHA-256", b = async (e) => {
   async importPublicKey(e) {
     if (e instanceof CryptoKey)
       return e;
-    const t = typeof e == "string" ? JSON.parse(e) : e, { wrappedKey: r, algorithm: a, format: n } = t, o = { name: a, hash: P }, s = c.from(r, "base64");
+    const t = typeof e == "string" ? JSON.parse(e) : e, { wrappedKey: r, algorithm: a, format: n } = t, o = { name: a, hash: A }, s = c.from(r, "base64");
     return await crypto.subtle.importKey(n, s, o, !0, ["encrypt"]);
   },
   async importPrivateKey(e, t) {
     if (e instanceof CryptoKey)
       return e;
-    const r = typeof e == "string" ? JSON.parse(e) : e, a = await b(t), n = c.from(r.wrappedKey, "base64"), o = c.from(r.iv, "base64"), s = await crypto.subtle.decrypt({ name: d, iv: o }, a, n), y = r.format || "pkcs8", i = y === "jwk" ? JSON.parse(new TextDecoder().decode(s)) : s;
+    const r = typeof e == "string" ? JSON.parse(e) : e, a = await S(t), n = c.from(r.wrappedKey, "base64"), o = c.from(r.iv, "base64"), s = await crypto.subtle.decrypt({ name: u, iv: o }, a, n), y = r.format || "pkcs8", i = y === "jwk" ? JSON.parse(new TextDecoder().decode(s)) : s;
     return crypto.subtle.importKey(
       y,
       i,
       {
         name: l,
-        hash: P
+        hash: A
       },
       !0,
       ["decrypt"]
@@ -76,14 +76,14 @@ const T = "AES-GCM", R = "SHA-256", b = async (e) => {
     t = await this.importPublicKey(t);
     const r = await crypto.subtle.generateKey(
       {
-        name: d,
+        name: u,
         length: 256
       },
       !0,
       ["encrypt", "decrypt"]
     ), a = crypto.getRandomValues(new Uint8Array(12)), n = new TextEncoder().encode(e), o = await crypto.subtle.encrypt(
       {
-        name: d,
+        name: u,
         iv: a
       },
       r,
@@ -118,27 +118,27 @@ const T = "AES-GCM", R = "SHA-256", b = async (e) => {
       "raw",
       s,
       {
-        name: d,
+        name: u,
         length: 256
       },
       !1,
       ["decrypt"]
-    ), i = c.from(a.encryptedData, "base64"), p = c.from(n.iv, "base64"), v = await crypto.subtle.decrypt(
+    ), i = c.from(a.encryptedData, "base64"), p = c.from(n.iv, "base64"), P = await crypto.subtle.decrypt(
       {
-        name: d,
+        name: u,
         iv: p
       },
       y,
       i
     );
-    return new TextDecoder().decode(v);
+    return new TextDecoder().decode(P);
   }
-}, m = "ECDH", x = "P-256", u = "AES-GCM", G = (e) => ({
+}, m = "ECDH", x = "P-256", K = "AES-GCM", J = (e) => ({
   name: m,
   namedCurve: (e == null ? void 0 : e.eccCurve) || x
-}), h = {
+}), f = {
   async generateKeyPair(e) {
-    const t = G(e), r = await crypto.subtle.generateKey(t, !0, ["deriveKey", "deriveBits"]), a = await A(
+    const t = J(e), r = await crypto.subtle.generateKey(t, !0, ["deriveKey", "deriveBits"]), a = await v(
       r.privateKey,
       (e == null ? void 0 : e.passphrase) ?? "",
       t.name,
@@ -152,7 +152,7 @@ const T = "AES-GCM", R = "SHA-256", b = async (e) => {
   async importPrivateKey(e, t) {
     if (e instanceof CryptoKey)
       return e;
-    const r = typeof e == "string" ? JSON.parse(e) : e, a = await b(t), n = c.from(r.wrappedKey, "base64"), o = c.from(r.iv, "base64"), s = await crypto.subtle.decrypt({ name: u, iv: o }, a, n), y = r.format || (r.algorithm === m ? "jwk" : "pkcs8"), i = y === "jwk" ? JSON.parse(new TextDecoder().decode(s)) : s, p = { name: m, namedCurve: r.namedCurve };
+    const r = typeof e == "string" ? JSON.parse(e) : e, a = await S(t), n = c.from(r.wrappedKey, "base64"), o = c.from(r.iv, "base64"), s = await crypto.subtle.decrypt({ name: K, iv: o }, a, n), y = r.format || (r.algorithm === m ? "jwk" : "pkcs8"), i = y === "jwk" ? JSON.parse(new TextDecoder().decode(s)) : s, p = { name: m, namedCurve: r.namedCurve };
     return crypto.subtle.importKey(y, i, p, !0, ["deriveKey", "deriveBits"]);
   },
   async importPublicKey(e) {
@@ -177,14 +177,14 @@ const T = "AES-GCM", R = "SHA-256", b = async (e) => {
       },
       a.privateKey,
       {
-        name: u,
+        name: K,
         length: 256
       },
       !1,
       ["encrypt"]
     ), o = crypto.getRandomValues(new Uint8Array(12)), s = new TextEncoder().encode(e), y = await crypto.subtle.encrypt(
       {
-        name: u,
+        name: K,
         iv: o
       },
       n,
@@ -222,14 +222,14 @@ const T = "AES-GCM", R = "SHA-256", b = async (e) => {
       },
       t,
       {
-        name: u,
+        name: K,
         length: 256
       },
       !1,
       ["decrypt"]
     ), s = c.from(a.encryptedData, "base64"), y = c.from(a.metadata.iv, "base64"), i = await crypto.subtle.decrypt(
       {
-        name: u,
+        name: K,
         iv: y
       },
       o,
@@ -237,13 +237,13 @@ const T = "AES-GCM", R = "SHA-256", b = async (e) => {
     );
     return new TextDecoder().decode(i);
   }
-}, w = "AES-CTR", J = "AES-GCM", E = { name: w, length: 256 }, S = {
+}, b = "AES-CTR", G = "AES-GCM", O = { name: b, length: 256 }, g = {
   async generateKeyPair(e) {
-    const t = await crypto.subtle.generateKey(E, !0, ["encrypt", "decrypt"]), r = (e == null ? void 0 : e.passphrase) || "", a = {
+    const t = await crypto.subtle.generateKey(O, !0, ["encrypt", "decrypt"]), r = (e == null ? void 0 : e.passphrase) || "", a = {
       wrappedKey: c.from(JSON.stringify(await crypto.subtle.exportKey("jwk", t))).toString("base64"),
-      algorithm: w,
+      algorithm: b,
       format: "jwk"
-    }, n = r.length > 0 ? await A(t, r, w) : a;
+    }, n = r.length > 0 ? await v(t, r, b) : a;
     return {
       publicKey: a,
       privateKey: n
@@ -255,14 +255,14 @@ const T = "AES-GCM", R = "SHA-256", b = async (e) => {
   async importPrivateKey(e, t) {
     if (e instanceof CryptoKey)
       return e;
-    const r = typeof e == "string" ? JSON.parse(e) : e, { wrappedKey: a, format: n, iv: o, protected: s } = r, y = E;
+    const r = typeof e == "string" ? JSON.parse(e) : e, { wrappedKey: a, format: n, iv: o, protected: s } = r, y = O;
     if (s) {
-      const v = await b(t), M = await crypto.subtle.decrypt(
-        { name: J, iv: c.from(o, "base64") },
-        v,
+      const P = await S(t), D = await crypto.subtle.decrypt(
+        { name: G, iv: c.from(o, "base64") },
+        P,
         c.from(a, "base64")
-      ), D = JSON.parse(new TextDecoder().decode(M));
-      return await crypto.subtle.importKey(n, D, y, !0, ["encrypt", "decrypt"]);
+      ), H = JSON.parse(new TextDecoder().decode(D));
+      return await crypto.subtle.importKey(n, H, y, !0, ["encrypt", "decrypt"]);
     }
     const i = c.from(a, "base64").toString(), p = JSON.parse(i);
     return await crypto.subtle.importKey(n, p, y, !0, ["encrypt", "decrypt"]);
@@ -270,7 +270,7 @@ const T = "AES-GCM", R = "SHA-256", b = async (e) => {
   async encrypt(e, t) {
     t = await this.importPublicKey(t);
     const r = new TextEncoder().encode(e), a = { name: "AES-CTR", counter: new Uint8Array(16), length: 16 * 8 }, n = await crypto.subtle.encrypt(a, t, r), o = {
-      algorithm: w,
+      algorithm: b,
       keyHash: await C(t, "raw")
     };
     return {
@@ -287,26 +287,26 @@ const T = "AES-GCM", R = "SHA-256", b = async (e) => {
     );
   }
 };
-class O extends Error {
+class E extends Error {
   constructor(t, ...r) {
-    super(...r), this.name = "UnhandledMatchError", this.message = `Unhandled match value of type ${typeof t} - ${t}`, Error.captureStackTrace(this, O);
+    super(...r), this.name = "UnhandledMatchError", this.message = `Unhandled match value of type ${typeof t} - ${t}`, Error.captureStackTrace(this, E);
   }
 }
 function I(e) {
   throw e;
 }
-const f = Symbol(), L = (e) => I(new O(e)), K = (e, t, r = L) => {
+const h = Symbol(), L = (e) => I(new E(e)), d = (e, t, r = L) => {
   const a = /* @__PURE__ */ new Map(), n = Array.isArray(t) ? t : Object.entries(t).map(([s, y]) => [s, y]);
   for (const [...s] of n) {
     const y = s.pop();
     for (const i of s.flat())
       a.has(i) || a.set(i, y);
   }
-  a.has(f) || a.set(f, r);
-  const o = a.get(e) ?? a.get(f);
+  a.has(h) || a.set(h, r);
+  const o = a.get(e) ?? a.get(h);
   return typeof o == "function" ? o(e) : o;
 };
-K.default = f;
+d.default = h;
 const U = async (e) => {
   let t;
   if (typeof e == "string")
@@ -315,33 +315,41 @@ const U = async (e) => {
     t = e;
   else
     return e;
-  return K(t.algorithm, [
-    ["RSA-OAEP", () => g.importPublicKey(t)],
-    ["ECDH", () => h.importPublicKey(t)],
-    ["AES-CTR", () => S.importPublicKey(t)]
+  return d(t.algorithm, [
+    ["RSA-OAEP", () => w.importPublicKey(t)],
+    ["ECDH", () => f.importPublicKey(t)],
+    ["AES-CTR", () => g.importPublicKey(t)]
   ]);
-}, j = async (e) => K((e == null ? void 0 : e.algorithm) ?? "RSA", [
-  ["RSA", () => g.generateKeyPair(e)],
-  ["ECC", () => h.generateKeyPair(e)],
-  ["AES", () => S.generateKeyPair(e)]
-]), B = async (e) => ({
+}, j = async (e, t, r) => {
+  const a = typeof e == "string" ? JSON.parse(e) : e, n = await d(a.algorithm, [
+    ["RSA-OAEP", () => w.importPrivateKey(a, t ?? "")],
+    ["ECDH", () => f.importPrivateKey(a, t ?? "")],
+    ["AES-CTR", () => g.importPrivateKey(a, t ?? "")]
+  ]);
+  return v(n, r ?? "", a.algorithm, a.namedCurve);
+}, B = async (e) => d((e == null ? void 0 : e.algorithm) ?? "RSA", [
+  ["RSA", () => w.generateKeyPair(e)],
+  ["ECC", () => f.generateKeyPair(e)],
+  ["AES", () => g.generateKeyPair(e)]
+]), F = async (e) => ({
   publicKey: JSON.stringify(e.publicKey),
   privateKey: JSON.stringify(e.privateKey)
-}), F = async (e, t) => {
+}), V = async (e, t) => {
   const r = await U(t);
-  return K(r.algorithm.name, [
-    ["RSA-OAEP", async () => g.encrypt(e, r)],
-    ["ECDH", async () => h.encrypt(e, r)],
-    ["AES-CTR", async () => S.encrypt(e, r)]
+  return d(r.algorithm.name, [
+    ["RSA-OAEP", async () => w.encrypt(e, r)],
+    ["ECDH", async () => f.encrypt(e, r)],
+    ["AES-CTR", async () => g.encrypt(e, r)]
   ]);
-}, V = async (e, t, r) => (typeof e == "string" && (e = JSON.parse(e)), K(e.metadata.algorithm, [
-  ["RSA-OAEP", async () => g.decrypt(e, t, r)],
-  ["ECDH", async () => h.decrypt(e, t, r)],
-  ["AES-CTR", async () => S.decrypt(e, t, r)]
+}, $ = async (e, t, r) => (typeof e == "string" && (e = JSON.parse(e)), d(e.metadata.algorithm, [
+  ["RSA-OAEP", async () => w.decrypt(e, t, r)],
+  ["ECDH", async () => f.decrypt(e, t, r)],
+  ["AES-CTR", async () => g.decrypt(e, t, r)]
 ]));
 export {
-  V as decrypt,
-  F as encrypt,
-  B as exportKeyPair,
-  j as generateKeyPair
+  j as changePassphrase,
+  $ as decrypt,
+  V as encrypt,
+  F as exportKeyPair,
+  B as generateKeyPair
 };
