@@ -4,6 +4,8 @@ A TypeScript library for encryption and key management, compatible with both Nod
 
 It leverages the **Web Crypto API** and provides a simple interface for **generating key pairs**, **encrypting**, and **decrypting** data using various algorithms including **RSA**, **ECC**, and **AES**.
 
+Public / private keys and secrets can be **serialized** for storage.
+
 ## Features
 
 - 🔑 Multiple cryptographic algorithms support (RSA, ECC, AES)
