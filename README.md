@@ -1,6 +1,8 @@
 # Let's Decrypt!
 
-A TypeScript library for encryption and key management, compatible with both Node.js and browsers. It provides a simple interface for generating key pairs, encrypting, and decrypting data using various algorithms including RSA, ECC, and AES.
+A TypeScript library for encryption and key management, compatible with both Node.js and browsers. 
+
+It leverages the **Web Crypto API** and provides a simple interface for **generating key pairs**, **encrypting**, and **decrypting** data using various algorithms including **RSA**, **ECC**, and **AES**.
 
 ## Features
 
