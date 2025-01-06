@@ -14,10 +14,10 @@ A TypeScript library for encryption and key management, compatible with both Nod
 ## Playground
 
 You can test the library in your browser using the [Let's Decrypt Playground](https://letsdecrypt.pages.dev/).
-  
+
 ## Prerequisites
 
-You can run this library in both Node.js and browser environments. 
+You can run this library in both Node.js and browser environments.
 The following are the minimum versions required for each:
 
 ### NodeJS
@@ -55,6 +55,20 @@ async function example() {
   console.log(decrypted); // "Hello, World!"
 }
 ```
+
+### Changing Private Key Passphrase
+
+```typescript
+import { changePassphrase } from 'letsdecrypt';
+
+// Change the passphrase protecting a private key
+const newPrivateKey = await changePassphrase(
+  existingPrivateKey,
+  'old-passphrase',
+  'new-passphrase'
+);
+```
+
 
 ### Key Pair Generation with Options
 
@@ -133,6 +147,15 @@ Parameters:
 - `secret: Secret | string` - The encrypted data
 - `privateKey: MaybeSerializedKey` - The private key (can be serialized or CryptoKey)
 - `passphrase?: string` - Required if the private key is protected
+
+#### `changePassphrase(privateKey: MaybeSerializedKey, oldPassphrase: string, newPassphrase: string): Promise<WrappedKeyData>`
+
+Changes the passphrase protecting a private key.
+
+Parameters:
+- `privateKey: MaybeSerializedKey` - The private key to re-protect
+- `oldPassphrase: string` - Current passphrase protecting the key
+- `newPassphrase: string` - New passphrase to protect the key with
 
 #### `exportKeyPair(keyPair: CryptoKeyPair | WrappedCryptoKeyPair): Promise<SerializedKeyPair>`
 

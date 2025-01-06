@@ -9,6 +9,7 @@ import {
   SerializedKeyPair,
   WrappedCryptoKeyPair,
   WrappedKeyData,
+  wrapPrivateKey,
 } from './common'
 import match from 'match-operator'
 
@@ -26,6 +27,25 @@ const importPublicKey = async (publicKey: MaybeSerializedKey): Promise<CryptoKey
     ['ECDH', () => Ecc.importPublicKey(wrappedKeyData)],
     ['AES-CTR', () => Aes.importPublicKey(wrappedKeyData)],
   ]) as unknown as Promise<CryptoKey>
+}
+
+export const changePassphrase = async (
+  privateKey: MaybeSerializedKey,
+  oldPassphrase: string | null,
+  newPassphrase: string | null
+): Promise<WrappedKeyData> => {
+  const wrappedKeyData: WrappedKeyData =
+    typeof privateKey === 'string' ? JSON.parse(privateKey) : (privateKey as WrappedKeyData)
+
+  // Import the private key using the old passphrase
+  const cryptoKey = (await match(wrappedKeyData.algorithm, [
+    ['RSA-OAEP', () => Rsa.importPrivateKey(wrappedKeyData, oldPassphrase ?? '')],
+    ['ECDH', () => Ecc.importPrivateKey(wrappedKeyData, oldPassphrase ?? '')],
+    ['AES-CTR', () => Aes.importPrivateKey(wrappedKeyData, oldPassphrase ?? '')],
+  ])) as unknown as CryptoKey
+
+  // Wrap the key with the new passphrase
+  return wrapPrivateKey(cryptoKey, newPassphrase ?? '', wrappedKeyData.algorithm, wrappedKeyData.namedCurve)
 }
 
 export const generateKeyPair = async (options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> => {

@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {generateKeyPair, encrypt, exportKeyPair, decrypt} from '../src'
+import {generateKeyPair, encrypt, exportKeyPair, decrypt, changePassphrase} from '../src'
 import {payload as sensitiveData} from './data'
 
 describe.each([
@@ -37,6 +37,37 @@ describe.each([
 
   it('decrypts a secret', async function () {
     let decrypted = await decrypt(serializedSecret, serializedKeys.privateKey, passphrase)
+    expect(decrypted).toBe(sensitiveData)
+  })
+
+  it('cannot decrypt a secret with the wrong private key', async function () {
+    keyPair = await generateKeyPair({
+      algorithm: 'RSA',
+      modulusLength,
+      passphrase,
+    })
+    const serializedKeys = await exportKeyPair(keyPair)
+    const {privateKey} = serializedKeys
+    try {
+      await decrypt(serializedSecret, privateKey, passphrase)
+      expect(true).toBe(false) // This line should not be reached
+    } catch (e) {
+      expect(e).toBeInstanceOf(Error)
+    }
+  })
+
+  it('cannot decrypt a secret with the wrong passphrase', async function () {
+    try {
+      await decrypt(serializedSecret, serializedKeys.privateKey, 'wrong passphrase')
+      expect(true).toBe(false) // This line should not be reached
+    } catch (e) {
+      expect(e).toBeInstanceOf(Error)
+    }
+  })
+
+  it('changes the passphrase', async function () {
+    const newPrivateKey = await changePassphrase(serializedKeys.privateKey, passphrase, 'C0vf3f3')
+    let decrypted = await decrypt(serializedSecret, newPrivateKey, 'C0vf3f3')
     expect(decrypted).toBe(sensitiveData)
   })
 })
