@@ -18,9 +18,10 @@ describe.each([{sensitiveData}, {sensitiveData, passphrase: 'May the 4th be with
 
     it('serializes the keys', async function () {
       serializedKeys = await exportKeyPair(keyPair)
-      const {publicKey, privateKey} = serializedKeys
+      const {publicKey, privateKey, fingerprint} = serializedKeys
       expect(publicKey).toBeTypeOf('string')
       expect(privateKey).toBeTypeOf('string')
+      expect(fingerprint).toBeTypeOf('string')
     })
 
     it('encrypts a secret', async function () {

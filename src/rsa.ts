@@ -37,6 +37,7 @@ export const Rsa: CryptoServiceAlgorithmInterface = {
     return {
       publicKey: wrappedPublicKey,
       privateKey: wrappedPrivateKey,
+      fingerprint: await hashKey(keyPair.publicKey),
     }
   },
   async importPublicKey(wrappedData: MaybeSerializedKey): Promise<CryptoKey> {

@@ -47,6 +47,10 @@
 
       <div v-if="keyPair" class="mt-4 space-y-4">
         <div>
+          <label class="block mb-2">Key Fingerprint</label>
+          <code class="block p-2 bg-gray-100 rounded font-mono">{{ keyPair.fingerprint }}</code>
+        </div>
+        <div>
           <label class="block mb-2">Public Key</label>
           <textarea v-model="serializedKeys.publicKey" readonly class="border p-2 rounded w-full h-32"></textarea>
         </div>
@@ -180,7 +184,7 @@ const rsaModulusLength = ref<number>(2048)
 const eccCurve = ref<'P-256' | 'P-384' | 'P-521'>('P-256')
 const passphrase = ref('')
 const keyPair = ref<CryptoKeyPair | null>(null)
-const serializedKeys = ref<SerializedKeyPair>({publicKey: '', privateKey: ''})
+const serializedKeys = ref<SerializedKeyPair>({publicKey: '', privateKey: '', fingerprint: ''})
 const keyGenerationCodeBlock = asyncComputed(() => {
   const params: any = match(algorithm.value, {
     RSA: reactive({algorithm: 'RSA', rsaModulusLength}),

@@ -31,6 +31,7 @@ export const Aes: CryptoServiceAlgorithmInterface = {
     return {
       publicKey: wrappedPublicKey,
       privateKey: wrappedPrivateKey,
+      fingerprint: await hashKey(privateKey, 'raw'),
     }
   },
 
