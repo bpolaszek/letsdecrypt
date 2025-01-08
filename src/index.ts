@@ -2,7 +2,6 @@ import {Rsa} from './rsa'
 import {Ecc} from './ecc'
 import {Aes} from './aes'
 import {
-  CryptoKeyPair,
   KeyPairOptions,
   MaybeSerializedKey,
   Secret,
@@ -56,10 +55,11 @@ export const generateKeyPair = async (options?: KeyPairOptions): Promise<Wrapped
   ]) as unknown as Promise<WrappedCryptoKeyPair>
 }
 
-export const exportKeyPair = async (keyPair: CryptoKeyPair | WrappedCryptoKeyPair): Promise<SerializedKeyPair> => {
+export const exportKeyPair = async (keyPair: WrappedCryptoKeyPair): Promise<SerializedKeyPair> => {
   return {
     publicKey: JSON.stringify(keyPair.publicKey),
     privateKey: JSON.stringify(keyPair.privateKey),
+    fingerprint: keyPair.fingerprint,
   }
 }
 

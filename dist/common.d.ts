@@ -8,6 +8,7 @@ export interface KeyPairOptions {
 export interface SerializedKeyPair {
     publicKey: string;
     privateKey: string;
+    fingerprint: string;
 }
 export interface SecretMetadata {
     algorithm: string;
@@ -32,6 +33,7 @@ export interface CryptoKeyPair {
 export interface WrappedCryptoKeyPair {
     publicKey: WrappedKeyData;
     privateKey: WrappedKeyData;
+    fingerprint: string;
 }
 export type Secret = {
     encryptedData: string;

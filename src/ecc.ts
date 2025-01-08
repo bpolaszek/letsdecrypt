@@ -39,6 +39,7 @@ export const Ecc: CryptoServiceAlgorithmInterface = {
     return {
       publicKey: wrappedPublicKey,
       privateKey: wrappedPrivateKey,
+      fingerprint: await hashKey(keyPair.publicKey),
     }
   },
   async importPrivateKey(wrappedData: MaybeSerializedKey, passphrase: string): Promise<CryptoKey> {
