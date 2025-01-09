@@ -87,3 +87,12 @@ export const decrypt = async (
     ['AES-CTR', async () => Aes.decrypt(secret, privateKey, passphrase)],
   ]) as unknown as Promise<string>
 }
+
+export type {
+  KeyPairOptions,
+  MaybeSerializedKey,
+  Secret,
+  SerializedKeyPair,
+  WrappedCryptoKeyPair,
+  WrappedKeyData,
+} from './common'

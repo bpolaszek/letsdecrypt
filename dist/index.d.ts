@@ -4,3 +4,4 @@ export declare const generateKeyPair: (options?: KeyPairOptions) => Promise<Wrap
 export declare const exportKeyPair: (keyPair: WrappedCryptoKeyPair) => Promise<SerializedKeyPair>;
 export declare const encrypt: (data: string, publicKey: MaybeSerializedKey) => Promise<Secret>;
 export declare const decrypt: (secret: Secret | string, privateKey: MaybeSerializedKey, passphrase?: string) => Promise<string>;
+export type { KeyPairOptions, MaybeSerializedKey, Secret, SerializedKeyPair, WrappedCryptoKeyPair, WrappedKeyData, } from './common';
