@@ -28,6 +28,7 @@ export interface SecretMetadata {
 }
 
 export interface WrappedKeyData {
+  fingerprint: string
   wrappedKey: string // base64 encoded
   algorithm: string // The algorithm used for the key
   format: string // The format of the wrapped key
@@ -89,9 +90,11 @@ export const generateKeyFromPassphrase = async (passphrase: string): Promise<Cry
 export const wrapPublicKey = async (
   key: CryptoKey,
   algorithm: string,
+  fingerprint: string,
   namedCurve?: string
 ): Promise<WrappedKeyData> => {
   return {
+    fingerprint,
     wrappedKey: Buffer.from(await crypto.subtle.exportKey('spki', key)).toString('base64'),
     iv: Buffer.from(crypto.getRandomValues(new Uint8Array(12))).toString('base64'),
     format: 'spki',
@@ -104,6 +107,7 @@ export const wrapPrivateKey = async (
   key: CryptoKey,
   passphrase: string,
   algorithm: string,
+  fingerprint: string,
   namedCurve?: string
 ): Promise<WrappedKeyData> => {
   // First export the private key to wrap it
@@ -121,6 +125,7 @@ export const wrapPrivateKey = async (
   const wrapped = await crypto.subtle.encrypt({name: SYMMETRIC_ALGORITHM, iv}, wrappingKey, keyBytes)
 
   return {
+    fingerprint,
     wrappedKey: Buffer.from(wrapped).toString('base64'),
     iv: Buffer.from(iv).toString('base64'),
     algorithm,

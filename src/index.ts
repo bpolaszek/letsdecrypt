@@ -44,7 +44,13 @@ export const changePassphrase = async (
   ])) as unknown as CryptoKey
 
   // Wrap the key with the new passphrase
-  return wrapPrivateKey(cryptoKey, newPassphrase ?? '', wrappedKeyData.algorithm, wrappedKeyData.namedCurve)
+  return wrapPrivateKey(
+    cryptoKey,
+    newPassphrase ?? '',
+    wrappedKeyData.algorithm,
+    wrappedKeyData.fingerprint,
+    wrappedKeyData.namedCurve
+  )
 }
 
 export const generateKeyPair = async (options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> => {
