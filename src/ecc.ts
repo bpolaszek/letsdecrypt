@@ -28,18 +28,20 @@ export const Ecc: CryptoServiceAlgorithmInterface = {
   async generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> {
     const params = getKeyGenParams(options)
     const keyPair = await crypto.subtle.generateKey(params, true, ['deriveKey', 'deriveBits'])
+    const fingerprint = await hashKey(keyPair.publicKey)
     // If passphrase provided, wrap the private key
     const wrappedPrivateKey = await wrapPrivateKey(
       keyPair.privateKey,
       options?.passphrase ?? '',
       params.name,
+      fingerprint,
       params.namedCurve
     )
-    const wrappedPublicKey = await wrapPublicKey(keyPair.publicKey, params.name, params.namedCurve)
+    const wrappedPublicKey = await wrapPublicKey(keyPair.publicKey, params.name, fingerprint, params.namedCurve)
     return {
       publicKey: wrappedPublicKey,
       privateKey: wrappedPrivateKey,
-      fingerprint: await hashKey(keyPair.publicKey),
+      fingerprint,
     }
   },
   async importPrivateKey(wrappedData: MaybeSerializedKey, passphrase: string): Promise<CryptoKey> {

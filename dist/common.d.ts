@@ -19,6 +19,7 @@ export interface SecretMetadata {
     namedCurve?: string;
 }
 export interface WrappedKeyData {
+    fingerprint: string;
     wrappedKey: string;
     algorithm: string;
     format: string;
@@ -48,6 +49,6 @@ export interface CryptoServiceAlgorithmInterface {
 }
 export type MaybeSerializedKey = string | WrappedKeyData | CryptoKey;
 export declare const generateKeyFromPassphrase: (passphrase: string) => Promise<CryptoKey>;
-export declare const wrapPublicKey: (key: CryptoKey, algorithm: string, namedCurve?: string) => Promise<WrappedKeyData>;
-export declare const wrapPrivateKey: (key: CryptoKey, passphrase: string, algorithm: string, namedCurve?: string) => Promise<WrappedKeyData>;
+export declare const wrapPublicKey: (key: CryptoKey, algorithm: string, fingerprint: string, namedCurve?: string) => Promise<WrappedKeyData>;
+export declare const wrapPrivateKey: (key: CryptoKey, passphrase: string, algorithm: string, fingerprint: string, namedCurve?: string) => Promise<WrappedKeyData>;
 export declare const hashKey: (key: CryptoKey, format?: string) => Promise<string>;

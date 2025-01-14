@@ -17,9 +17,12 @@ describe.each([
       modulusLength,
       passphrase,
     })
-    const {publicKey, privateKey} = keyPair
+    const {publicKey, privateKey, fingerprint} = keyPair
+    expect(fingerprint).toBeDefined()
     expect(publicKey).toBeDefined()
+    expect(publicKey.fingerprint).toEqual(fingerprint)
     expect(privateKey).toBeDefined()
+    expect(privateKey.fingerprint).toEqual(fingerprint)
   })
 
   it('serializes the keys', async function () {
@@ -42,7 +45,7 @@ describe.each([
   })
 
   it('cannot decrypt a secret with the wrong private key', async function () {
-    keyPair = await generateKeyPair({
+    const keyPair = await generateKeyPair({
       algorithm: 'RSA',
       modulusLength,
       passphrase,
@@ -70,5 +73,6 @@ describe.each([
     const newPrivateKey = await changePassphrase(serializedKeys.privateKey, passphrase, 'C0vf3f3')
     let decrypted = await decrypt(serializedSecret, newPrivateKey, 'C0vf3f3')
     expect(decrypted).toBe(sensitiveData)
+    expect(newPrivateKey.fingerprint).toEqual(keyPair.privateKey.fingerprint)
   })
 })

@@ -18,20 +18,24 @@ const ALGORITHM_OPTIONS = {name: AES_ALGORITHM, length: 256}
 export const Aes: CryptoServiceAlgorithmInterface = {
   async generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> {
     const privateKey = await crypto.subtle.generateKey(ALGORITHM_OPTIONS, true, ['encrypt', 'decrypt'])
-    const passphrase = options?.passphrase || ''
+    const fingerprint = await hashKey(privateKey, 'raw')
 
+    const passphrase = options?.passphrase || ''
     const wrappedPublicKey = {
+      fingerprint,
       wrappedKey: Buffer.from(JSON.stringify(await crypto.subtle.exportKey('jwk', privateKey))).toString('base64'),
       algorithm: AES_ALGORITHM,
       format: 'jwk',
     }
-    const wrappedPrivateKey =
-      passphrase.length > 0 ? await wrapPrivateKey(privateKey, passphrase, AES_ALGORITHM) : wrappedPublicKey
 
+    const wrappedPrivateKey =
+      passphrase.length > 0
+        ? await wrapPrivateKey(privateKey, passphrase, AES_ALGORITHM, fingerprint)
+        : wrappedPublicKey
     return {
       publicKey: wrappedPublicKey,
       privateKey: wrappedPrivateKey,
-      fingerprint: await hashKey(privateKey, 'raw'),
+      fingerprint,
     }
   },
 

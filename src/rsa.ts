@@ -31,13 +31,19 @@ export const Rsa: CryptoServiceAlgorithmInterface = {
   async generateKeyPair(options?: KeyPairOptions): Promise<WrappedCryptoKeyPair> {
     const params = getKeyGenParams(options)
     const keyPair = await crypto.subtle.generateKey(params, true, ['encrypt', 'decrypt'])
+    const fingerprint = await hashKey(keyPair.publicKey)
     // If passphrase provided, wrap the private key
-    const wrappedPrivateKey = await wrapPrivateKey(keyPair.privateKey, options?.passphrase ?? '', params.name)
-    const wrappedPublicKey = await wrapPublicKey(keyPair.publicKey, params.name)
+    const wrappedPrivateKey = await wrapPrivateKey(
+      keyPair.privateKey,
+      options?.passphrase ?? '',
+      params.name,
+      fingerprint
+    )
+    const wrappedPublicKey = await wrapPublicKey(keyPair.publicKey, params.name, fingerprint)
     return {
       publicKey: wrappedPublicKey,
       privateKey: wrappedPrivateKey,
-      fingerprint: await hashKey(keyPair.publicKey),
+      fingerprint,
     }
   },
   async importPublicKey(wrappedData: MaybeSerializedKey): Promise<CryptoKey> {
