@@ -12,6 +12,7 @@ import {
   wrapPublicKey,
 } from './common'
 import {Buffer} from 'buffer'
+import {unserializeKey, unserializeSecret} from './index.ts'
 
 const RSA_ALGORITHM = 'RSA-OAEP'
 const SYMMETRIC_ALGORITHM = 'AES-GCM'
@@ -50,7 +51,7 @@ export const Rsa: CryptoServiceAlgorithmInterface = {
     if (wrappedData instanceof CryptoKey) {
       return wrappedData
     }
-    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? JSON.parse(wrappedData) : wrappedData
+    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? unserializeKey(wrappedData) : wrappedData
     const {wrappedKey, algorithm, format} = wrappedKeyData
     const algorithmOptions = {name: algorithm, hash: HASHING_ALGORITHM}
     const binaryKey = Buffer.from(wrappedKey, 'base64')
@@ -60,7 +61,7 @@ export const Rsa: CryptoServiceAlgorithmInterface = {
     if (wrappedData instanceof CryptoKey) {
       return wrappedData
     }
-    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? JSON.parse(wrappedData) : wrappedData
+    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? unserializeKey(wrappedData) : wrappedData
 
     // Generate the unwrapping key from the passphrase
     const unwrappingKey = await generateKeyFromPassphrase(passphrase)
@@ -138,12 +139,12 @@ export const Rsa: CryptoServiceAlgorithmInterface = {
     }
   },
   async decrypt(secret: Secret | string, privateKey: MaybeSerializedKey, passphrase?: string): Promise<string> {
-    const secretObj = typeof secret === 'string' ? JSON.parse(secret) : secret
+    const secretObj = typeof secret === 'string' ? unserializeSecret(secret) : secret
     privateKey = await this.importPrivateKey(privateKey, passphrase ?? '')
 
     const metadata = secretObj.metadata
     // Decrypt the symmetric key
-    const encryptedSymKey = Buffer.from(metadata.symmetricKey, 'base64')
+    const encryptedSymKey = Buffer.from(metadata.symmetricKey!, 'base64')
     const symmetricKeyBuffer = await crypto.subtle.decrypt(
       {
         name: RSA_ALGORITHM,
@@ -166,7 +167,7 @@ export const Rsa: CryptoServiceAlgorithmInterface = {
 
     // Decrypt the data
     const encryptedData = Buffer.from(secretObj.encryptedData, 'base64')
-    const iv = Buffer.from(metadata.iv, 'base64')
+    const iv = Buffer.from(metadata.iv!, 'base64')
 
     const decryptedData = await crypto.subtle.decrypt(
       {

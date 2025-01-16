@@ -10,6 +10,7 @@ import {
   wrapPrivateKey,
 } from './common.ts'
 import {Buffer} from 'buffer'
+import {unserializeKey, unserializeSecret} from './index.ts'
 
 const AES_ALGORITHM = 'AES-CTR'
 const GCM_ALGORITHM = 'AES-GCM'
@@ -47,7 +48,7 @@ export const Aes: CryptoServiceAlgorithmInterface = {
     if (wrappedData instanceof CryptoKey) {
       return wrappedData
     }
-    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? JSON.parse(wrappedData) : wrappedData
+    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? unserializeKey(wrappedData) : wrappedData
     const {wrappedKey, format, iv, protected: isProtected} = wrappedKeyData
     const algorithmOptions = ALGORITHM_OPTIONS
 
@@ -88,7 +89,7 @@ export const Aes: CryptoServiceAlgorithmInterface = {
   },
 
   async decrypt(secret: Secret | string, privateKey: MaybeSerializedKey, passphrase?: string): Promise<string> {
-    const secretObj = typeof secret === 'string' ? JSON.parse(secret) : secret
+    const secretObj = typeof secret === 'string' ? unserializeSecret(secret) : secret
     privateKey = await this.importPrivateKey(privateKey, passphrase ?? '')
     const algorithmOptions = {name: 'AES-CTR', counter: new Uint8Array(16), length: 16 * 8}
     return new TextDecoder('utf-8').decode(

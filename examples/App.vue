@@ -48,15 +48,21 @@
       <div v-if="keyPair" class="mt-4 space-y-4">
         <div>
           <label class="block mb-2">Key Fingerprint</label>
-          <code class="block p-2 bg-gray-100 rounded font-mono">{{ keyPair.fingerprint }}</code>
+          <code class="block p-2 bg-gray-100 rounded font-mono uppercase">{{ keyPair.fingerprint }}</code>
         </div>
         <div>
           <label class="block mb-2">Public Key</label>
-          <textarea v-model="serializedKeys.publicKey" readonly class="border p-2 rounded w-full h-32"></textarea>
+          <textarea
+            v-model="serializedKeys.publicKey"
+            readonly
+            class="border p-2 rounded w-full h-32 font-mono text-xs"></textarea>
         </div>
         <div>
           <label class="block mb-2">Private Key</label>
-          <textarea v-model="serializedKeys.privateKey" readonly class="border p-2 rounded w-full h-32"></textarea>
+          <textarea
+            v-model="serializedKeys.privateKey"
+            readonly
+            class="border p-2 rounded w-full h-32 font-mono text-xs"></textarea>
         </div>
       </div>
     </section>
@@ -78,14 +84,14 @@
           </div>
           <textarea
             v-model="encryptionPublicKey"
-            class="border p-2 rounded w-full h-32"
+            class="border p-2 rounded w-full h-32 font-mono text-xs"
             placeholder="Paste public key here"></textarea>
         </div>
         <div>
           <label class="block mb-2">Message to Encrypt</label>
           <textarea
             v-model="messageToEncrypt"
-            class="border p-2 rounded w-full h-32"
+            class="border p-2 rounded w-full h-32 font-mono text-xs"
             placeholder="Enter message to encrypt"></textarea>
         </div>
 
@@ -96,7 +102,10 @@
 
       <div v-if="encryptedSecret" class="mt-4">
         <label class="block mb-2">Encrypted Secret</label>
-        <textarea v-model="serializedSecret" readonly class="border p-2 rounded w-full h-32"></textarea>
+        <textarea
+          v-model="serializedSecret"
+          readonly
+          class="border p-2 rounded w-full h-32 font-mono text-xs"></textarea>
       </div>
     </section>
 
@@ -117,7 +126,7 @@
           </div>
           <textarea
             v-model="decryptionPrivateKey"
-            class="border p-2 rounded w-full h-32"
+            class="border p-2 rounded w-full h-32 font-mono text-xs"
             placeholder="Paste private key here"></textarea>
         </div>
         <div>
@@ -150,7 +159,7 @@
           </div>
           <textarea
             v-model="secretToDecrypt"
-            class="border p-2 rounded w-full h-32"
+            class="border p-2 rounded w-full h-32 font-mono text-xs"
             placeholder="Paste encrypted secret here"></textarea>
         </div>
 
@@ -170,7 +179,7 @@
 <script setup lang="ts">
 import {reactive, ref} from 'vue'
 import {Secret, SerializedKeyPair} from '../src/common'
-import {decrypt, encrypt, exportKeyPair, generateKeyPair as doGenerateKeyPair} from '../src'
+import {decrypt, encrypt, exportKeyPair, serializeSecret, generateKeyPair as doGenerateKeyPair} from '../src'
 import {codeToHtml} from 'shiki/bundle/web'
 import {asyncComputed} from '@vueuse/core'
 import match from 'match-operator'
@@ -287,7 +296,7 @@ async function encryptMessage() {
     }
 
     encryptedSecret.value = await encrypt(messageToEncrypt.value, encryptionPublicKey.value)
-    serializedSecret.value = JSON.stringify(encryptedSecret.value)
+    serializedSecret.value = serializeSecret(encryptedSecret.value)
   } catch (error) {
     console.error('Error encrypting message:', error)
     alert('Failed to encrypt message')
