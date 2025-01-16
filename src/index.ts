@@ -11,11 +11,12 @@ import {
   wrapPrivateKey,
 } from './common'
 import match from 'match-operator'
+import {base64ToString, stringToBase64} from './base64.ts'
 
 const importPublicKey = async (publicKey: MaybeSerializedKey): Promise<CryptoKey> => {
   let wrappedKeyData: WrappedKeyData
   if ('string' === typeof publicKey) {
-    wrappedKeyData = JSON.parse(publicKey)
+    wrappedKeyData = unserializeKey(publicKey)
   } else if ('object' === typeof publicKey) {
     wrappedKeyData = publicKey as WrappedKeyData
   } else {
@@ -34,7 +35,7 @@ export const changePassphrase = async (
   newPassphrase: string | null
 ): Promise<WrappedKeyData> => {
   const wrappedKeyData: WrappedKeyData =
-    typeof privateKey === 'string' ? JSON.parse(privateKey) : (privateKey as WrappedKeyData)
+    typeof privateKey === 'string' ? unserializeKey(privateKey) : (privateKey as WrappedKeyData)
 
   // Import the private key using the old passphrase
   const cryptoKey = (await match(wrappedKeyData.algorithm, [
@@ -61,10 +62,13 @@ export const generateKeyPair = async (options?: KeyPairOptions): Promise<Wrapped
   ]) as unknown as Promise<WrappedCryptoKeyPair>
 }
 
+export const serializeKey = (key: WrappedKeyData): string => stringToBase64(JSON.stringify(key))
+export const unserializeKey = (serialized: string): WrappedKeyData => JSON.parse(base64ToString(serialized))
+
 export const exportKeyPair = async (keyPair: WrappedCryptoKeyPair): Promise<SerializedKeyPair> => {
   return {
-    publicKey: JSON.stringify(keyPair.publicKey),
-    privateKey: JSON.stringify(keyPair.privateKey),
+    publicKey: serializeKey(keyPair.publicKey),
+    privateKey: serializeKey(keyPair.privateKey),
     fingerprint: keyPair.fingerprint,
   }
 }
@@ -79,13 +83,16 @@ export const encrypt = async (data: string, publicKey: MaybeSerializedKey): Prom
   ]) as unknown as Promise<Secret>
 }
 
+export const serializeSecret = (secret: Secret): string => stringToBase64(JSON.stringify(secret))
+export const unserializeSecret = (serialized: string): Secret => JSON.parse(base64ToString(serialized))
+
 export const decrypt = async (
   secret: Secret | string,
   privateKey: MaybeSerializedKey,
   passphrase?: string
 ): Promise<string> => {
   if ('string' === typeof secret) {
-    secret = JSON.parse(secret)
+    secret = JSON.parse(base64ToString(secret))
   }
   return match((secret as Secret).metadata.algorithm, [
     ['RSA-OAEP', async () => Rsa.decrypt(secret, privateKey, passphrase)],

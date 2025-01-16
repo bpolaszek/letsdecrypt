@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {generateKeyPair, encrypt, exportKeyPair, decrypt, changePassphrase} from '../src'
+import {generateKeyPair, encrypt, exportKeyPair, decrypt, changePassphrase, serializeSecret} from '../src'
 import {payload as sensitiveData} from './data'
 
 describe.each([
@@ -40,7 +40,7 @@ describe.each([
     expect(encryptedSecret.metadata.keyFingerprint).toBe(keyPair.fingerprint)
     expect(encryptedSecret.metadata.iv).toBeDefined()
     expect(encryptedSecret.metadata.symmetricKey).toBeDefined()
-    serializedSecret = JSON.stringify(encryptedSecret)
+    serializedSecret = serializeSecret(encryptedSecret)
   })
 
   it('decrypts a secret', async function () {

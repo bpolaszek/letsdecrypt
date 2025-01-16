@@ -12,6 +12,7 @@ import {
   wrapPublicKey,
 } from './common'
 import {Buffer} from 'buffer'
+import {unserializeKey, unserializeSecret} from './index.ts'
 
 const ECC_ALGORITHM = 'ECDH'
 const DEFAULT_ECC_CURVE = 'P-256'
@@ -48,7 +49,7 @@ export const Ecc: CryptoServiceAlgorithmInterface = {
     if (wrappedData instanceof CryptoKey) {
       return wrappedData
     }
-    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? JSON.parse(wrappedData) : wrappedData
+    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? unserializeKey(wrappedData) : wrappedData
 
     // Generate the unwrapping key from the passphrase
     const unwrappingKey = await generateKeyFromPassphrase(passphrase)
@@ -73,7 +74,7 @@ export const Ecc: CryptoServiceAlgorithmInterface = {
     if (wrappedData instanceof CryptoKey) {
       return wrappedData
     }
-    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? JSON.parse(wrappedData) : wrappedData
+    const wrappedKeyData: WrappedKeyData = 'string' === typeof wrappedData ? unserializeKey(wrappedData) : wrappedData
     const {wrappedKey, algorithm, format, namedCurve} = wrappedKeyData
     const algorithmOptions = {name: algorithm, namedCurve}
     const binaryKey = Buffer.from(wrappedKey, 'base64')
@@ -144,7 +145,7 @@ export const Ecc: CryptoServiceAlgorithmInterface = {
   },
   async decrypt(secret: Secret | string, privateKey: MaybeSerializedKey, passphrase?: string): Promise<string> {
     // Import the ephemeral public key
-    const secretObj = typeof secret === 'string' ? JSON.parse(secret) : secret
+    const secretObj = typeof secret === 'string' ? unserializeSecret(secret) : secret
     privateKey = await this.importPrivateKey(privateKey, passphrase ?? '')
 
     const ephemeralPublicKey = await crypto.subtle.importKey(

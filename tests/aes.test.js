@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {changePassphrase, decrypt, encrypt, exportKeyPair, generateKeyPair} from '../src'
+import {changePassphrase, decrypt, encrypt, exportKeyPair, serializeSecret, generateKeyPair} from '../src'
 import {payload as sensitiveData} from './data'
 
 describe.each([{sensitiveData}, {sensitiveData, passphrase: 'May the 4th be with you.'}])(
@@ -32,7 +32,7 @@ describe.each([{sensitiveData}, {sensitiveData, passphrase: 'May the 4th be with
       expect(encryptedSecret.encryptedData).toBeTypeOf('string')
       expect(encryptedSecret.metadata.algorithm).toBe('AES-CTR')
       expect(encryptedSecret.metadata.keyFingerprint).toBe(keyPair.fingerprint)
-      serializedSecret = JSON.stringify(encryptedSecret)
+      serializedSecret = serializeSecret(encryptedSecret)
     })
 
     it('decrypts a secret', async function () {
