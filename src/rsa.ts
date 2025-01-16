@@ -127,7 +127,7 @@ export const Rsa: CryptoServiceAlgorithmInterface = {
     // Create metadata
     const metadata: SecretMetadata = {
       algorithm: RSA_ALGORITHM,
-      keyHash: await hashKey(publicKey),
+      keyFingerprint: await hashKey(publicKey),
       iv: Buffer.from(iv).toString('base64'),
       symmetricKey: Buffer.from(encryptedSymKey).toString('base64'),
     }

@@ -20,7 +20,7 @@ export interface SerializedKeyPair {
 
 export interface SecretMetadata {
   algorithm: string
-  keyHash: string
+  keyFingerprint: string
   symmetricKey?: string
   iv?: string
   publicKey?: string // For ECC, we need to store the ephemeral public key

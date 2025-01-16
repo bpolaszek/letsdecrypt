@@ -130,7 +130,7 @@ export const Ecc: CryptoServiceAlgorithmInterface = {
     // Create metadata
     const metadata: SecretMetadata = {
       algorithm: ECC_ALGORITHM,
-      keyHash: await hashKey(publicKey),
+      keyFingerprint: await hashKey(publicKey),
       iv: Buffer.from(iv).toString('base64'),
       symmetricKey: '', // Not needed for ECC
       publicKey: Buffer.from(exportedEphemeralKey).toString('base64'),

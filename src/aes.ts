@@ -78,7 +78,7 @@ export const Aes: CryptoServiceAlgorithmInterface = {
 
     const metadata = {
       algorithm: AES_ALGORITHM,
-      keyHash: await hashKey(publicKey, 'raw'),
+      keyFingerprint: await hashKey(publicKey, 'raw'),
     }
 
     return {

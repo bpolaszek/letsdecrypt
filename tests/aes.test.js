@@ -30,6 +30,8 @@ describe.each([{sensitiveData}, {sensitiveData, passphrase: 'May the 4th be with
     it('encrypts a secret', async function () {
       encryptedSecret = await encrypt(sensitiveData, serializedKeys.publicKey)
       expect(encryptedSecret.encryptedData).toBeTypeOf('string')
+      expect(encryptedSecret.metadata.algorithm).toBe('AES-CTR')
+      expect(encryptedSecret.metadata.keyFingerprint).toBe(keyPair.fingerprint)
       serializedSecret = JSON.stringify(encryptedSecret)
     })
 

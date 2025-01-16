@@ -36,6 +36,10 @@ describe.each([
   it('encrypts a secret', async function () {
     encryptedSecret = await encrypt(sensitiveData, serializedKeys.publicKey)
     expect(encryptedSecret.encryptedData).toBeTypeOf('string')
+    expect(encryptedSecret.metadata.algorithm).toBe('ECDH')
+    expect(encryptedSecret.metadata.keyFingerprint).toBe(keyPair.fingerprint)
+    expect(encryptedSecret.metadata.publicKey).toBeDefined()
+    expect(encryptedSecret.metadata.namedCurve).toBe(eccCurve ?? 'P-256')
     serializedSecret = JSON.stringify(encryptedSecret)
   })
 
