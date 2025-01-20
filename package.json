@@ -6,6 +6,9 @@
   "files": [
     "dist"
   ],
+  "bin": {
+    "letsdecrypt": "./bin/letsdecrypt.js"
+  },
   "main": "./dist/letsdecrypt.umd.js",
   "module": "./dist/letsdecrypt.es.js",
   "types": "./dist/index.d.ts",
@@ -18,23 +21,29 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm-run-all build:lib build:preview build:cli",
+    "build:lib": "vite build",
     "build:preview": "vite build -c vite.config.preview.js --outDir .output",
+    "build:cli": "tsc && vite build -c vite.config.cli.js --outDir bin",
     "preview": "vite preview --outDir .output",
     "test": "vitest",
-    "lint": "prettier --check \"(src|tests|examples)/**\" --ignore-unknown",
-    "format": "prettier -w \"(src|tests|examples)/**\" --ignore-unknown"
+    "lint": "prettier --check \"(src|tests|examples|cli)/**\" --ignore-unknown",
+    "format": "prettier -w \"(src|tests|examples|cli)/**\" --ignore-unknown"
   },
   "dependencies": {
-    "match-operator": "^0.3.0"
+    "match-operator": "^0.3.0",
+    "minimist": "^1.2.8"
   },
   "devDependencies": {
-    "@types/node": "^20.4.2",
+    "@types/minimist": "^1.2.5",
+    "@types/node": "^22.10.7",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vueuse/core": "^12.0.0",
     "buffer": "^6.0.3",
+    "npm-run-all": "^4.1.5",
     "path": "^0.12.7",
     "prettier": "^3.0.0",
+    "rollup-plugin-node-externals": "^8.0.0",
     "shiki": "^1.24.3",
     "typescript": "^5.0.2",
     "vite": "^6.0.3",

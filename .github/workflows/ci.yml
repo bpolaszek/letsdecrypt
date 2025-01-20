@@ -75,10 +75,28 @@ jobs:
         run: yarn install
 
       - name: Get initial dist checksum
-        id: initial-checksum
+        id: initial-dist-checksum
         run: |
           if [ -d "dist" ]; then
             echo "checksum=$(find dist -type f -exec md5sum {} \; | sort -k 2 | md5sum | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          else
+            echo "checksum=none" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get initial bin checksum
+        id: initial-bin-checksum
+        run: |
+          if [ -d "bin" ]; then
+            echo "checksum=$(find bin -type f -exec md5sum {} \; | sort -k 2 | md5sum | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          else
+            echo "checksum=none" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get initial preview checksum
+        id: initial-preview-checksum
+        run: |
+          if [ -d "preview" ]; then
+            echo "checksum=$(find preview -type f -exec md5sum {} \; | sort -k 2 | md5sum | cut -d' ' -f1)" >> $GITHUB_OUTPUT
           else
             echo "checksum=none" >> $GITHUB_OUTPUT
           fi
@@ -89,12 +107,38 @@ jobs:
       - name: Verify dist checksum
         run: |
           NEW_CHECKSUM=$(find dist -type f -exec md5sum {} \; | sort -k 2 | md5sum | cut -d' ' -f1)
-          INITIAL_CHECKSUM=${{ steps.initial-checksum.outputs.checksum }}
+          INITIAL_CHECKSUM=${{ steps.initial-dist-checksum.outputs.checksum }}
           
           if [ "$INITIAL_CHECKSUM" != "none" ] && [ "$NEW_CHECKSUM" != "$INITIAL_CHECKSUM" ]; then
             echo "Error: dist folder content changed after build"
             echo "Initial checksum: $INITIAL_CHECKSUM"
             echo "New checksum: $NEW_CHECKSUM"
             echo "Please run 'yarn build' locally and commit the changes."
+            exit 1
+          fi
+
+      - name: Verify bin checksum
+        run: |
+          NEW_CHECKSUM=$(find bin -type f -exec md5sum {} \; | sort -k 2 | md5sum | cut -d' ' -f1)
+          INITIAL_CHECKSUM=${{ steps.initial-bin-checksum.outputs.checksum }}
+          
+          if [ "$INITIAL_CHECKSUM" != "none" ] && [ "$NEW_CHECKSUM" != "$INITIAL_CHECKSUM" ]; then
+            echo "Error: bin folder content changed after build"
+            echo "Initial checksum: $INITIAL_CHECKSUM"
+            echo "New checksum: $NEW_CHECKSUM"
+            echo "Please run 'yarn build:cli' locally and commit the changes."
+            exit 1
+          fi
+
+      - name: Verify preview checksum
+        run: |
+          NEW_CHECKSUM=$(find preview -type f -exec md5sum {} \; | sort -k 2 | md5sum | cut -d' ' -f1)
+          INITIAL_CHECKSUM=${{ steps.initial-preview-checksum.outputs.checksum }}
+          
+          if [ "$INITIAL_CHECKSUM" != "none" ] && [ "$NEW_CHECKSUM" != "$INITIAL_CHECKSUM" ]; then
+            echo "Error: preview folder content changed after build"
+            echo "Initial checksum: $INITIAL_CHECKSUM"
+            echo "New checksum: $NEW_CHECKSUM"
+            echo "Please run 'yarn build:preview' locally and commit the changes."
             exit 1
           fi
