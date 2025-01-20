@@ -21,8 +21,8 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'cli/index.ts'),
-      name: 'letsdecrypt',
-      fileName: 'letsdecrypt',
+      formats: ['cjs'], // uniquement CommonJS
+      fileName: () => 'letsdecrypt.js'
     },
     rollupOptions: {
       output: {
