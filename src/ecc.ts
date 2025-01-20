@@ -70,6 +70,32 @@ export const Ecc: CryptoServiceAlgorithmInterface = {
 
     return crypto.subtle.importKey(format, keyData, importParams, true, ['deriveKey', 'deriveBits'])
   },
+
+  async derivePublicKey(privateKey: CryptoKey): Promise<CryptoKey> {
+    // For ECC, we need to export the private key as JWK to get the public components
+    const jwk = await crypto.subtle.exportKey('jwk', privateKey)
+
+    // Create a public key JWK by keeping only the public components
+    const publicJwk = {
+      kty: jwk.kty,
+      crv: jwk.crv,
+      x: jwk.x,
+      y: jwk.y,
+      ext: true,
+    }
+
+    // Import the public key
+    return crypto.subtle.importKey(
+      'jwk',
+      publicJwk,
+      {
+        name: ECC_ALGORITHM,
+        namedCurve: (privateKey.algorithm as EcKeyAlgorithm).namedCurve,
+      },
+      true,
+      []
+    )
+  },
   async importPublicKey(wrappedData: MaybeSerializedKey): Promise<CryptoKey> {
     if (wrappedData instanceof CryptoKey) {
       return wrappedData

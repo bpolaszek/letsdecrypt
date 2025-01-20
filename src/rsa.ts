@@ -88,6 +88,32 @@ export const Rsa: CryptoServiceAlgorithmInterface = {
       ['decrypt']
     )
   },
+
+  async derivePublicKey(privateKey: CryptoKey): Promise<CryptoKey> {
+    // For RSA, we need to export the private key as JWK to get the public components
+    const jwk = await crypto.subtle.exportKey('jwk', privateKey)
+
+    // Create a public key JWK by keeping only the public components
+    const publicJwk = {
+      kty: jwk.kty,
+      n: jwk.n,
+      e: jwk.e,
+      alg: jwk.alg,
+      ext: true,
+    }
+
+    // Import the public key
+    return crypto.subtle.importKey(
+      'jwk',
+      publicJwk,
+      {
+        name: RSA_ALGORITHM,
+        hash: HASHING_ALGORITHM,
+      },
+      true,
+      ['encrypt']
+    )
+  },
   async encrypt(data: string, publicKey: MaybeSerializedKey): Promise<Secret> {
     publicKey = await this.importPublicKey(publicKey)
     // RSA encryption path (unchanged)

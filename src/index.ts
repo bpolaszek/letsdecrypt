@@ -4,11 +4,12 @@ import {Aes} from './aes'
 import {
   KeyPairOptions,
   MaybeSerializedKey,
+  WrappedKeyData,
   Secret,
   SerializedKeyPair,
   WrappedCryptoKeyPair,
-  WrappedKeyData,
   wrapPrivateKey,
+  wrapPublicKey,
 } from './common'
 import match from 'match-operator'
 import {base64ToString, stringToBase64} from './base64.ts'
@@ -101,6 +102,34 @@ export const decrypt = async (
   ]) as unknown as Promise<string>
 }
 
+export const derivePublicKey = async (
+  privateKey: MaybeSerializedKey,
+  passphrase: string = ''
+): Promise<WrappedKeyData> => {
+  const wrappedKeyData: WrappedKeyData =
+    typeof privateKey === 'string' ? unserializeKey(privateKey) : (privateKey as WrappedKeyData)
+
+  // Import the private key using the appropriate algorithm
+  const cryptoKey = (await match(wrappedKeyData.algorithm, [
+    ['RSA-OAEP', () => Rsa.importPrivateKey(wrappedKeyData, passphrase)],
+    ['ECDH', () => Ecc.importPrivateKey(wrappedKeyData, passphrase)],
+    ['AES-CTR', () => Aes.importPrivateKey(wrappedKeyData, passphrase)],
+  ])) as unknown as CryptoKey
+
+  if ('AES-CTR' === wrappedKeyData.algorithm) {
+    return wrappedKeyData
+  }
+
+  // Derive the public key using the appropriate algorithm
+  const publicKey = (await match(wrappedKeyData.algorithm, [
+    ['RSA-OAEP', () => Rsa.derivePublicKey(cryptoKey)],
+    ['ECDH', () => Ecc.derivePublicKey(cryptoKey)],
+    ['AES-CTR', () => Aes.derivePublicKey(cryptoKey)],
+  ])) as unknown as CryptoKey
+
+  // For RSA and ECC, we need to export the public key
+  return wrapPublicKey(publicKey, wrappedKeyData.algorithm, wrappedKeyData.fingerprint, wrappedKeyData.namedCurve)
+}
 export type {
   KeyPairOptions,
   MaybeSerializedKey,

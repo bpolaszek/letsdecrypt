@@ -1,5 +1,13 @@
 import {describe, expect, it} from 'vitest'
-import {generateKeyPair, encrypt, exportKeyPair, decrypt, changePassphrase, serializeSecret} from '../src'
+import {
+  generateKeyPair,
+  encrypt,
+  exportKeyPair,
+  decrypt,
+  changePassphrase,
+  serializeSecret,
+  derivePublicKey,
+} from '../src'
 import {payload as sensitiveData} from './data'
 
 describe.each([
@@ -78,5 +86,17 @@ describe.each([
     let decrypted = await decrypt(serializedSecret, newPrivateKey, 'C0vf3f3')
     expect(decrypted).toBe(sensitiveData)
     expect(newPrivateKey.fingerprint).toEqual(keyPair.privateKey.fingerprint)
+  })
+
+  it('generates public key from private key', async function () {
+    const publicKey = await derivePublicKey(serializedKeys.privateKey, passphrase)
+    expect(publicKey.fingerprint).toBe(keyPair.fingerprint)
+    expect(publicKey.algorithm).toBe('ECDH')
+    expect(publicKey.namedCurve).toBe(eccCurve ?? 'P-256')
+
+    // Verify the public key works for encryption
+    const testSecret = await encrypt('test message', publicKey)
+    const decrypted = await decrypt(testSecret, serializedKeys.privateKey, passphrase)
+    expect(decrypted).toBe('test message')
   })
 })
