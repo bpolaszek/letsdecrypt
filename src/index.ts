@@ -102,7 +102,7 @@ export const decrypt = async (
   ]) as unknown as Promise<string>
 }
 
-export const generatePublicKey = async (
+export const derivePublicKey = async (
   privateKey: MaybeSerializedKey,
   passphrase: string = ''
 ): Promise<WrappedKeyData> => {
