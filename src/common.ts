@@ -59,6 +59,7 @@ export interface CryptoServiceAlgorithmInterface {
   decrypt(secret: Secret | string, privateKey: MaybeSerializedKey, passphrase?: string): Promise<string>
   importPrivateKey(wrappedData: MaybeSerializedKey, passphrase: string): Promise<CryptoKey>
   importPublicKey(wrappedData: MaybeSerializedKey): Promise<CryptoKey>
+  derivePublicKey(privateKey: CryptoKey): Promise<CryptoKey>
 }
 
 export type MaybeSerializedKey = string | WrappedKeyData | CryptoKey
@@ -93,6 +94,11 @@ export const wrapPublicKey = async (
   fingerprint: string,
   namedCurve?: string
 ): Promise<WrappedKeyData> => {
+  // Make sure we have a public key
+  if (key.type === 'private') {
+    throw new Error('Cannot wrap a private key as public key')
+  }
+
   return {
     fingerprint,
     wrappedKey: Buffer.from(await crypto.subtle.exportKey('spki', key)).toString('base64'),

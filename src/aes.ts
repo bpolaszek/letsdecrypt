@@ -39,7 +39,9 @@ export const Aes: CryptoServiceAlgorithmInterface = {
       fingerprint,
     }
   },
-
+  derivePublicKey(): Promise<CryptoKey> {
+    throw Error('Not implemented')
+  },
   async importPublicKey(wrappedData: MaybeSerializedKey): Promise<CryptoKey> {
     return this.importPrivateKey(wrappedData, '')
   },
