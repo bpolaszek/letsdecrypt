@@ -46,6 +46,7 @@ export interface CryptoServiceAlgorithmInterface {
     decrypt(secret: Secret | string, privateKey: MaybeSerializedKey, passphrase?: string): Promise<string>;
     importPrivateKey(wrappedData: MaybeSerializedKey, passphrase: string): Promise<CryptoKey>;
     importPublicKey(wrappedData: MaybeSerializedKey): Promise<CryptoKey>;
+    derivePublicKey(privateKey: CryptoKey): Promise<CryptoKey>;
 }
 export type MaybeSerializedKey = string | WrappedKeyData | CryptoKey;
 export declare const generateKeyFromPassphrase: (passphrase: string) => Promise<CryptoKey>;
