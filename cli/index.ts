@@ -23,5 +23,11 @@ import {decryptCommand} from './decrypt-command'
       ['encrypt', () => encryptCommand(args, options as any)],
       ['decrypt', () => decryptCommand(args, options as any)],
     ])
-  console.log(await commandToRun())
+  try {
+    console.log(await commandToRun())
+    process.exit(0)
+  } catch (e) {
+    console.error(e)
+    process.exit(1)
+  }
 })()

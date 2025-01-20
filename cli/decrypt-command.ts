@@ -8,11 +8,6 @@ type DecryptCommandOptions = Options & {
 }
 
 export async function decryptCommand([value]: Arguments, options: DecryptCommandOptions) {
-  try {
-    const privateKey = options['private-key'] ?? required()
-    return await decrypt(value, privateKey, options.passphrase ?? '')
-  } catch (err) {
-    console.error('Error reading stdin:', err)
-    throw err
-  }
+  const privateKey = options['private-key'] ?? required()
+  return await decrypt(value, privateKey, options.passphrase ?? '')
 }

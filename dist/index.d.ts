@@ -8,5 +8,5 @@ export declare const encrypt: (data: string, publicKey: MaybeSerializedKey) => P
 export declare const serializeSecret: (secret: Secret) => string;
 export declare const unserializeSecret: (serialized: string) => Secret;
 export declare const decrypt: (secret: Secret | string, privateKey: MaybeSerializedKey, passphrase?: string) => Promise<string>;
-export declare const generatePublicKey: (privateKey: MaybeSerializedKey, passphrase?: string) => Promise<WrappedKeyData>;
+export declare const derivePublicKey: (privateKey: MaybeSerializedKey, passphrase?: string) => Promise<WrappedKeyData>;
 export type { KeyPairOptions, MaybeSerializedKey, Secret, SerializedKeyPair, WrappedCryptoKeyPair, WrappedKeyData, } from './common';
