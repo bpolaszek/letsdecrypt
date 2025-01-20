@@ -6,7 +6,7 @@ import {
   decrypt,
   changePassphrase,
   serializeSecret,
-  generatePublicKey,
+  derivePublicKey,
 } from '../src'
 import {payload as sensitiveData} from './data'
 
@@ -89,7 +89,7 @@ describe.each([
   })
 
   it('generates public key from private key', async function () {
-    const publicKey = await generatePublicKey(serializedKeys.privateKey, passphrase)
+    const publicKey = await derivePublicKey(serializedKeys.privateKey, passphrase)
     expect(publicKey.fingerprint).toBe(keyPair.fingerprint)
     expect(publicKey.algorithm).toBe('ECDH')
     expect(publicKey.namedCurve).toBe(eccCurve ?? 'P-256')
