@@ -22,6 +22,12 @@ import {decryptCommand} from './decrypt-command'
       ['public-key:generate', () => generatePublicKeyCommand(args, options as any)],
       ['encrypt', () => encryptCommand(args, options as any)],
       ['decrypt', () => decryptCommand(args, options as any)],
+      [
+        match.default as unknown as string,
+        () => {
+          throw Error(`Unknown command: ${commandName}`)
+        },
+      ],
     ])
   try {
     console.log(await commandToRun())
