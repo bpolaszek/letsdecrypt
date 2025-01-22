@@ -2,6 +2,7 @@ import {describe, expect, it} from 'vitest'
 import {
   generateKeyPair,
   encrypt,
+  checkPassphrase,
   exportKeyPair,
   decrypt,
   changePassphrase,
@@ -98,5 +99,26 @@ describe.each([
     const testSecret = await encrypt('test message', publicKey)
     const decrypted = await decrypt(testSecret, serializedKeys.privateKey, passphrase)
     expect(decrypted).toBe('test message')
+  })
+
+  it('validates correct passphrase', async function () {
+    if (passphrase) {
+      const isValid = await checkPassphrase(serializedKeys.privateKey, passphrase)
+      expect(isValid).toBe(true)
+    }
+  })
+
+  it('rejects incorrect passphrase', async function () {
+    if (passphrase) {
+      const isValid = await checkPassphrase(serializedKeys.privateKey, 'wrong passphrase')
+      expect(isValid).toBe(false)
+    }
+  })
+
+  it('accepts any passphrase for unprotected keys', async function () {
+    const unprotectedKeyPair = await generateKeyPair({algorithm: 'ECC'})
+    const {privateKey} = await exportKeyPair(unprotectedKeyPair)
+    const isValid = await checkPassphrase(privateKey, 'any passphrase')
+    expect(isValid).toBe(true)
   })
 })

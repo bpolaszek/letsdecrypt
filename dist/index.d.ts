@@ -1,4 +1,5 @@
 import { KeyPairOptions, MaybeSerializedKey, WrappedKeyData, Secret, SerializedKeyPair, WrappedCryptoKeyPair } from './common';
+export declare const checkPassphrase: (privateKey: string | WrappedKeyData, passphrase: string) => Promise<boolean>;
 export declare const changePassphrase: (privateKey: MaybeSerializedKey, oldPassphrase: string | null, newPassphrase: string | null) => Promise<WrappedKeyData>;
 export declare const generateKeyPair: (options?: KeyPairOptions) => Promise<WrappedCryptoKeyPair>;
 export declare const serializeKey: (key: WrappedKeyData) => string;

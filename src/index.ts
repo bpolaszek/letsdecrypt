@@ -14,6 +14,23 @@ import {
 import match from 'match-operator'
 import {base64ToString, stringToBase64} from './base64.ts'
 
+export const checkPassphrase = async (privateKey: string | WrappedKeyData, passphrase: string): Promise<boolean> => {
+  try {
+    const wrappedKeyData: WrappedKeyData = typeof privateKey === 'string' ? unserializeKey(privateKey) : privateKey
+    if (!wrappedKeyData.protected) {
+      return true
+    }
+    await match(wrappedKeyData.algorithm, [
+      ['RSA-OAEP', () => Rsa.importPrivateKey(wrappedKeyData, passphrase)],
+      ['ECDH', () => Ecc.importPrivateKey(wrappedKeyData, passphrase)],
+      ['AES-CTR', () => Aes.importPrivateKey(wrappedKeyData, passphrase)],
+    ])
+    return true
+  } catch (error) {
+    return false
+  }
+}
+
 const importPublicKey = async (publicKey: MaybeSerializedKey): Promise<CryptoKey> => {
   let wrappedKeyData: WrappedKeyData
   if ('string' === typeof publicKey) {

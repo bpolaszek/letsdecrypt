@@ -1,5 +1,5 @@
 import { Buffer as o } from "buffer";
-const M = "AES-GCM", H = "SHA-256", C = async (e) => {
+const H = "AES-GCM", M = "SHA-256", C = async (e) => {
   const t = new TextEncoder(), r = await crypto.subtle.importKey("raw", t.encode(e), "PBKDF2", !1, [
     "deriveBits",
     "deriveKey"
@@ -9,11 +9,11 @@ const M = "AES-GCM", H = "SHA-256", C = async (e) => {
       name: "PBKDF2",
       salt: t.encode("salt"),
       iterations: 1e5,
-      hash: H
+      hash: M
     },
     r,
     {
-      name: M,
+      name: H,
       length: 256
     },
     !0,
@@ -31,7 +31,7 @@ const M = "AES-GCM", H = "SHA-256", C = async (e) => {
     namedCurve: a
   };
 }, E = async (e, t, r, a, n) => {
-  const c = "jwk", y = await crypto.subtle.exportKey(c, e), i = new TextEncoder().encode(JSON.stringify(y)), s = await C(t), p = crypto.getRandomValues(new Uint8Array(12)), f = await crypto.subtle.encrypt({ name: M, iv: p }, s, i);
+  const c = "jwk", y = await crypto.subtle.exportKey(c, e), i = new TextEncoder().encode(JSON.stringify(y)), s = await C(t), p = crypto.getRandomValues(new Uint8Array(12)), f = await crypto.subtle.encrypt({ name: H, iv: p }, s, i);
   return {
     fingerprint: a,
     wrappedKey: o.from(f).toString("base64"),
@@ -42,7 +42,7 @@ const M = "AES-GCM", H = "SHA-256", C = async (e) => {
     protected: t.length > 0 ? !0 : void 0
   };
 }, b = async (e, t = "spki") => {
-  const r = await crypto.subtle.exportKey(t, e), a = await crypto.subtle.digest(H, r);
+  const r = await crypto.subtle.exportKey(t, e), a = await crypto.subtle.digest(M, r);
   return o.from(a).toString("hex");
 }, g = "RSA-OAEP", h = "AES-GCM", L = 2048, v = "SHA-256", U = (e) => ({
   name: g,
@@ -370,7 +370,18 @@ function j(e) {
 function k(e) {
   return decodeURIComponent(atob(e));
 }
-const V = async (e) => {
+const z = async (e, t) => {
+  try {
+    const r = typeof e == "string" ? d(e) : e;
+    return r.protected && await u(r.algorithm, [
+      ["RSA-OAEP", () => l.importPrivateKey(r, t)],
+      ["ECDH", () => K.importPrivateKey(r, t)],
+      ["AES-CTR", () => w.importPrivateKey(r, t)]
+    ]), !0;
+  } catch {
+    return !1;
+  }
+}, V = async (e) => {
   let t;
   if (typeof e == "string")
     t = d(e);
@@ -383,7 +394,7 @@ const V = async (e) => {
     ["ECDH", () => K.importPublicKey(t)],
     ["AES-CTR", () => w.importPublicKey(t)]
   ]);
-}, z = async (e, t, r) => {
+}, Y = async (e, t, r) => {
   const a = typeof e == "string" ? d(e) : e, n = await u(a.algorithm, [
     ["RSA-OAEP", () => l.importPrivateKey(a, t ?? "")],
     ["ECDH", () => K.importPrivateKey(a, t ?? "")],
@@ -396,26 +407,26 @@ const V = async (e) => {
     a.fingerprint,
     a.namedCurve
   );
-}, Y = async (e) => u((e == null ? void 0 : e.algorithm) ?? "RSA", [
+}, q = async (e) => u((e == null ? void 0 : e.algorithm) ?? "RSA", [
   ["RSA", () => l.generateKeyPair(e)],
   ["ECC", () => K.generateKeyPair(e)],
   ["AES", () => w.generateKeyPair(e)]
-]), D = (e) => j(JSON.stringify(e)), d = (e) => JSON.parse(k(e)), q = async (e) => ({
+]), D = (e) => j(JSON.stringify(e)), d = (e) => JSON.parse(k(e)), Q = async (e) => ({
   publicKey: D(e.publicKey),
   privateKey: D(e.privateKey),
   fingerprint: e.fingerprint
-}), Q = async (e, t) => {
+}), W = async (e, t) => {
   const r = await V(t);
   return u(r.algorithm.name, [
     ["RSA-OAEP", async () => l.encrypt(e, r)],
     ["ECDH", async () => K.encrypt(e, r)],
     ["AES-CTR", async () => w.encrypt(e, r)]
   ]);
-}, W = (e) => j(JSON.stringify(e)), O = (e) => JSON.parse(k(e)), X = async (e, t, r) => (typeof e == "string" && (e = JSON.parse(k(e))), u(e.metadata.algorithm, [
+}, X = (e) => j(JSON.stringify(e)), O = (e) => JSON.parse(k(e)), Z = async (e, t, r) => (typeof e == "string" && (e = JSON.parse(k(e))), u(e.metadata.algorithm, [
   ["RSA-OAEP", async () => l.decrypt(e, t, r)],
   ["ECDH", async () => K.decrypt(e, t, r)],
   ["AES-CTR", async () => w.decrypt(e, t, r)]
-])), Z = async (e, t = "") => {
+])), ee = async (e, t = "") => {
   const r = typeof e == "string" ? d(e) : e, a = await u(r.algorithm, [
     ["RSA-OAEP", () => l.importPrivateKey(r, t)],
     ["ECDH", () => K.importPrivateKey(r, t)],
@@ -431,14 +442,15 @@ const V = async (e) => {
   return R(n, r.algorithm, r.fingerprint, r.namedCurve);
 };
 export {
-  z as changePassphrase,
-  X as decrypt,
-  Z as derivePublicKey,
-  Q as encrypt,
-  q as exportKeyPair,
-  Y as generateKeyPair,
+  Y as changePassphrase,
+  z as checkPassphrase,
+  Z as decrypt,
+  ee as derivePublicKey,
+  W as encrypt,
+  Q as exportKeyPair,
+  q as generateKeyPair,
   D as serializeKey,
-  W as serializeSecret,
+  X as serializeSecret,
   d as unserializeKey,
   O as unserializeSecret
 };

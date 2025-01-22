@@ -1,5 +1,13 @@
 import {describe, expect, it} from 'vitest'
-import {changePassphrase, decrypt, encrypt, exportKeyPair, serializeSecret, generateKeyPair} from '../src'
+import {
+  changePassphrase,
+  checkPassphrase,
+  decrypt,
+  encrypt,
+  exportKeyPair,
+  serializeSecret,
+  generateKeyPair,
+} from '../src'
 import {payload as sensitiveData} from './data'
 
 describe.each([{sensitiveData}, {sensitiveData, passphrase: 'May the 4th be with you.'}])(
@@ -69,6 +77,27 @@ describe.each([{sensitiveData}, {sensitiveData, passphrase: 'May the 4th be with
       let decrypted = await decrypt(serializedSecret, newPrivateKey, 'C0vf3f3')
       expect(decrypted).toBe(sensitiveData)
       expect(newPrivateKey.fingerprint).toEqual(keyPair.privateKey.fingerprint)
+    })
+
+    it('validates correct passphrase', async function () {
+      if (passphrase) {
+        const isValid = await checkPassphrase(serializedKeys.privateKey, passphrase)
+        expect(isValid).toBe(true)
+      }
+    })
+
+    it('rejects incorrect passphrase', async function () {
+      if (passphrase) {
+        const isValid = await checkPassphrase(serializedKeys.privateKey, 'wrong passphrase')
+        expect(isValid).toBe(false)
+      }
+    })
+
+    it('accepts any passphrase for unprotected keys', async function () {
+      const unprotectedKeyPair = await generateKeyPair({algorithm: 'AES'})
+      const {privateKey} = await exportKeyPair(unprotectedKeyPair)
+      const isValid = await checkPassphrase(privateKey, 'any passphrase')
+      expect(isValid).toBe(true)
     })
   }
 )
